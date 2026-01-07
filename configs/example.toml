@@ -1,0 +1,10 @@
+experiment_id = "exp1_conflict_delay_correctness"
+system = "baseline_a"
+notes = "Stub run to validate artifact/manifest contract before implementing semantics."
+
+[params]
+conflict_rate = 0.10
+missingness = 0.02
+delay_family = "lognormal"
+delay_params = { mu = 0.0, sigma = 0.5 }
+

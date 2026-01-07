@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "exp-suite"
+version = "0.1.0"
+description = "Experiment suite for exception-aware distributed event systems under delayed reconciliation."
+readme = "readme_baseline.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Zach", email = "you@example.com" }]
+
+# Minimal, committee-defensible dependencies:
+# - Typer: CLI entrypoint for reproducible runs
+# - Pydantic: schema validation for canonical objects + configs
+# - NumPy/Pandas: deterministic computation + aggregation
+# - PyArrow: immutable columnar artifacts
+# - Matplotlib: figures generated from artifacts
+# - Rich: readable CLI logs (optional but low-risk)
+dependencies = [
+  "typer>=0.15,<1.0",
+  "pydantic>=2.9,<3.0",
+  "numpy>=2.0,<3.0",
+  "pandas>=2.2,<3.0",
+  "pyarrow>=16.0,<19.0",
+  "matplotlib>=3.8,<4.0",
+  "rich>=13.7,<14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2,<9.0",
+  "ruff>=0.6,<1.0",
+]
+
+[project.scripts]
+exp-suite = "exp_suite.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/exp_suite"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/exp_suite/**",
+  "readme_baseline.md",
+  "README_setup.md",
+  "docs/**",
+  "pyproject.toml",
+  "requirements.txt",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
