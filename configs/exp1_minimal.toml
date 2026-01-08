@@ -1,0 +1,19 @@
+kind = "exp1"
+experiment_id = "exp1_conflict_delay_correctness_minimal"
+system = "baseline_a"
+notes = "Minimal typed Exp1 config (Snippet 1)."
+
+entity_count = 100
+source_count = 3
+events_per_entity = 50
+
+conflict_rate = 0.10
+missingness = 0.02
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+

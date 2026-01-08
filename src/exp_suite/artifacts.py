@@ -12,6 +12,9 @@ import pyarrow.parquet as pq
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
+def write_parquet_table(path: Path, table: pa.Table) -> None:
+    pq.write_table(table, path)
+
 
 def write_empty_parquet(path: Path, schema: pa.Schema) -> None:
     """Write an empty Parquet file with a declared schema.

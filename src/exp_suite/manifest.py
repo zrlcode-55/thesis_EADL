@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import platform
 import subprocess
+import hashlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,8 @@ def build_run_manifest(
     checksums: dict[str, str],
     repo_root: Path,
 ) -> dict[str, Any]:
+    config_canonical = json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    config_sha256 = hashlib.sha256(config_canonical).hexdigest()
     return {
         "run_id": run_id,
         "created_utc": utc_now_iso(),
@@ -43,6 +47,7 @@ def build_run_manifest(
         "python": platform.python_version(),
         "platform": platform.platform(),
         "seed": seed,
+        "config_sha256": config_sha256,
         "config": config,
         "artifacts": artifacts,
         "checksums_sha256": checksums,

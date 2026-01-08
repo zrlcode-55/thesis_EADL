@@ -1,3 +1,4 @@
+kind = "stub"
 experiment_id = "exp1_conflict_delay_correctness"
 system = "baseline_a"
 notes = "Stub run to validate artifact/manifest contract before implementing semantics."
