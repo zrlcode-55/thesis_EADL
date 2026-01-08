@@ -29,6 +29,18 @@ def decision_schema() -> pa.Schema:
     )
 
 
+def evidence_set_schema() -> pa.Schema:
+    return pa.schema(
+        [
+            pa.field("evidence_set_id", pa.string(), nullable=False),
+            pa.field("entity_id", pa.string(), nullable=False),
+            pa.field("t_idx", pa.int32(), nullable=False),
+            pa.field("decision_time", pa.timestamp("us"), nullable=False),
+            pa.field("evidence_json", pa.string(), nullable=False),
+        ]
+    )
+
+
 def reconciliation_schema() -> pa.Schema:
     return pa.schema(
         [

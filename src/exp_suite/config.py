@@ -57,6 +57,60 @@ class Exp1Config(BaseModel):
     conflict_rate: float = Field(..., ge=0.0, le=1.0, description="Probability of disagreement across sources.")
     missingness: float = Field(..., ge=0.0, le=1.0, description="Probability an observation is missing.")
     delay: DelayModel = Field(..., description="Receipt-time delay model for evidence.")
+    decision_lag_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Lag added after the last receipt_time in a timepoint before emitting a decision opportunity.",
+    )
+    policy: Literal["always_wait", "always_act", "wait_on_conflict", "risk_threshold"] = Field(
+        default="wait_on_conflict",
+        description="Decision policy identifier (minimal ACT/WAIT policies for early scaffolding).",
+    )
+
+    # Cost model (preregistered; drives “correctness” via realized loss)
+    cost_false_act: float = Field(
+        default=5.0,
+        ge=0.0,
+        description="Loss if ACT is taken when truth indicates no intervention needed.",
+    )
+    cost_false_wait: float = Field(
+        default=10.0,
+        ge=0.0,
+        description="Loss if WAIT is taken when truth indicates intervention was needed.",
+    )
+    cost_wait_per_second: float = Field(
+        default=0.1,
+        ge=0.0,
+        description="Linear delay cost per second when choosing WAIT (waiting is not free).",
+    )
+    correctness_epsilon: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Treat actions within epsilon of the minimum loss as correct.",
+    )
+
+    # Overhead / conflict budget measurement knobs (preregistered thresholds)
+    overhead_quantile: float = Field(
+        default=0.95,
+        ge=0.0,
+        le=1.0,
+        description="Quantile used for conflict budget thresholds (e.g., 0.95 for p95).",
+    )
+    overhead_max_state_bytes: int = Field(
+        default=5000,
+        ge=0,
+        description="Max allowable state representation bytes (per decision point) at overhead_quantile.",
+    )
+    overhead_max_stateview_ms: float = Field(
+        default=2.0,
+        ge=0.0,
+        description="Max allowable state-view construction time in ms (per decision point) at overhead_quantile.",
+    )
+    overhead_sample_limit: int = Field(
+        default=1000,
+        ge=1,
+        description="Max number of decision points to sample for overhead measurement per run (deterministic sampling).",
+    )
 
     # Reconciliation (late truth) timing knobs: kept simple and defaulted for Snippet 3.
     reconciliation_lag_seconds: float = Field(

@@ -55,8 +55,11 @@ def generate_exp1_reconciliation(
     arrival = g["truth_window_end"] + pd.to_timedelta(base_lag + jitter, unit="s")
 
     def outcome_json(row: pd.Series) -> str:
+        truth_value = row["truth_proxy"]
+        label = "needs_act" if truth_value not in (0, 0.0, None) else "ok"
         out: dict[str, Any] = {
-            "truth_value": row["truth_proxy"],
+            "outcome": label,
+            "truth_value": truth_value,
             "t_idx": int(row["t_idx"]),
         }
         return json.dumps(out, separators=(",", ":"), sort_keys=True)

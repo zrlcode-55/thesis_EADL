@@ -39,4 +39,8 @@ This project explicitly separates **building correctness** from **optimizing out
 - No manual “fixing” of artifacts.
 - No changing the evaluation config grid after seeing outcomes without explicitly bumping the sweep ID and documenting the change.
 
+### Metric recomputation rule (versioned, no overwrite)
+
+If metric code changes after runs exist, recompute by writing **versioned** metrics files (e.g., `metrics_recomputed.json`) rather than overwriting `metrics.json`. Summaries must record which metrics file they used.
+
 

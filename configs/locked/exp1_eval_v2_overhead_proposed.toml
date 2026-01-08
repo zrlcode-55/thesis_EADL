@@ -1,0 +1,41 @@
+kind = "exp1"
+phase = "eval"
+experiment_id = "exp1_eval_v2_overhead"
+system = "proposed"
+notes = "Locked eval config v2_overhead (proposed). Pins overhead thresholds; do not edit."
+
+entity_count = 100
+source_count = 3
+events_per_entity = 50
+
+conflict_rate = 0.10
+missingness = 0.02
+
+decision_lag_seconds = 0.0
+policy = "risk_threshold"
+
+reconciliation_lag_seconds = 30.0
+
+cost_false_act = 5.0
+cost_false_wait = 10.0
+cost_wait_per_second = 0.1
+correctness_epsilon = 0.0
+
+# Overhead / conflict budget thresholds (p95)
+overhead_quantile = 0.95
+overhead_max_state_bytes = 5000
+overhead_max_stateview_ms = 2.0
+overhead_sample_limit = 1000
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0
+
+
