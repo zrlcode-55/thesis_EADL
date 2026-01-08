@@ -31,6 +31,10 @@ This suite is **domain-agnostic by role** for systems where:
 
 This is not a claim of “domain universality” for domains without an evaluable reconciliation/adjudication signal.
 
+### Pipeline Positioning (Where the Thesis Lives)
+
+These experiments target a specific cog in a larger distributed-system pipeline: the **pre-commit decision layer** that sits between **Signals/Evidence** and an **irreversible Command**. The suite measures what happens **before reconciliation collapses uncertainty**, while treating downstream consensus/ledger/state-machine machinery as standard infrastructure (see Appendix D for the full pipeline framing).
+
 ---
 
 ## 2. Core Unknowns (What Must Be Measured)
