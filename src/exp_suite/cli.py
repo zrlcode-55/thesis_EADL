@@ -9,6 +9,7 @@ import typer
 
 from exp_suite import __version__
 from exp_suite.artifacts import write_json
+from exp_suite.grid import generate_grid_configs, summarize_grid_from_summaries
 from exp_suite.manifest import try_git_rev, utc_now_iso
 from exp_suite.runner import execute_run
 from exp_suite.sweep import summarize_sweep
@@ -45,6 +46,101 @@ def run(
     rid = run_id or _default_run_id()
     manifest = execute_run(config_path=config, seed=seed, out_dir=out_dir, run_id=rid)
     typer.echo(f"Wrote run artifacts to: {Path(manifest['artifacts']['manifest']).parent}")
+
+@app.command(name="grid-generate")
+def grid_generate_cmd(
+    out_dir: Path = typer.Option(
+        Path("configs/locked/exp1_grid_v1"),
+        "--out-dir",
+        help="Output directory for generated locked grid configs.",
+    ),
+    base_config: Path = typer.Option(
+        Path("configs/locked/exp1_eval_v2_overhead_baseline_a.toml"),
+        "--base-config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Base locked exp1 config used as a template (will be overridden per system + regime axes).",
+    ),
+    experiment_id: str = typer.Option(
+        "exp1_grid_v1",
+        "--experiment-id",
+        help="Experiment id to write into generated configs (also used in filenames).",
+    ),
+    systems: list[str] = typer.Option(
+        ["baseline_a", "baseline_b", "proposed"],
+        "--system",
+        help="Systems to generate configs for. Repeat --system to override defaults.",
+    ),
+    conflict_rates: list[float] = typer.Option(
+        [0.01, 0.10, 0.20],
+        "--conflict-rate",
+        help="Conflict rate axis values. Repeat --conflict-rate to override defaults.",
+    ),
+    delay_sigmas: list[float] = typer.Option(
+        [0.25, 0.50, 1.00],
+        "--delay-sigma",
+        help="Lognormal sigma axis values. Repeat --delay-sigma to override defaults.",
+    ),
+    cost_false_acts: list[float] = typer.Option(
+        [5.0, 10.0, 20.0],
+        "--cost-false-act",
+        help="Axis values for cost_false_act. Repeat to override defaults.",
+    ),
+    cost_wait_per_seconds: list[float] = typer.Option(
+        [0.05, 0.10],
+        "--cost-wait-per-second",
+        help="Axis values for cost_wait_per_second. Repeat to override defaults.",
+    ),
+) -> None:
+    """Generate a preregistered regime grid of locked Exp1 eval configs (grid_v1)."""
+    written = generate_grid_configs(
+        base_config_path=base_config,
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        systems=systems,
+        conflict_rates=conflict_rates,
+        delay_sigmas=delay_sigmas,
+        cost_false_acts=cost_false_acts,
+        cost_wait_per_seconds=cost_wait_per_seconds,
+    )
+    typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
+
+
+@app.command(name="grid-summarize")
+def grid_summarize_cmd(
+    artifacts_dir: Path = typer.Option(
+        Path("artifacts"),
+        "--artifacts-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Artifacts root directory containing sweep_* dirs.",
+    ),
+    sweep_prefix: str = typer.Option(
+        ...,
+        "--sweep-prefix",
+        help='Sweep id prefix to aggregate, e.g. "exp1_grid_v1__A" or "exp1_grid_v1__B".',
+    ),
+    out_json: Path = typer.Option(
+        Path("artifacts/exp1_grid_v1_summary.json"),
+        "--out-json",
+        help="Output JSON file path for the grid summary artifact.",
+    ),
+    primary_metric: str = typer.Option(
+        "M3b_avg_regret_vs_oracle",
+        "--primary-metric",
+        help="Primary metric used for win/loss counting (lower is better).",
+    ),
+) -> None:
+    """Aggregate many sweep summaries into a single grid-level summary artifact."""
+    summary = summarize_grid_from_summaries(
+        artifacts_dir=artifacts_dir,
+        sweep_prefix=sweep_prefix,
+        out_json=out_json,
+        primary_metric=primary_metric,
+    )
+    typer.echo(f"Wrote grid summary to: {out_json} (rows={len(summary.get('rows', []))})")
 
 
 @app.command()

@@ -1,0 +1,32 @@
+kind = "exp1"
+phase = "eval"
+experiment_id = "exp1_grid_v1"
+system = "proposed"
+notes = "Locked grid point cr0p20__sig1p00__cfa10p00__cws0p05 (do not edit)."
+entity_count = 100
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.2
+missingness = 0.02
+decision_lag_seconds = 0.0
+policy = "risk_threshold"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+cost_wait_per_second = 0.05
+correctness_epsilon = 0.0
+overhead_quantile = 0.95
+overhead_max_state_bytes = 5000
+overhead_max_stateview_ms = 2.0
+overhead_sample_limit = 1000
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 1.0
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0
