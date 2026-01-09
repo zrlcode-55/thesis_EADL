@@ -234,6 +234,60 @@ Observation: proposed remains better than baseline_a on mean loss and regret und
 ### What we changed (if any)
 - None (same locked configs; increased N only).
 
+### 2026-01-09 — Experiment 1 (Feasibility / Overhead): Eval v2_overhead N=10 smoke + N=30 (EVAL)
+
+### Date:
+2026-01-09
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Record feasibility evidence (state overhead + state-view compute + conflict budget) under locked thresholds, using matched-seed sweeps and artifact-derived summaries. This is intentionally “no-bias”: thresholds are pinned in locked configs and we do not tune after seeing results.
+
+### Hypothesis / expectation (pre-run)
+Unknown. The goal is to measure feasibility costs (M7–M9) and check stability across seeds, not to optimize or cherry-pick.
+
+### Runs executed (artifact pointers)
+- Sweep IDs / dirs:
+  - N=10 smoke: `exp1_eval_v2_overhead_n10` → `artifacts/sweep_exp1_eval_v2_overhead_n10/`
+  - N=30: `exp1_eval_v2_overhead_n30_r1` → `artifacts/sweep_exp1_eval_v2_overhead_n30_r1/`
+- Config file paths (locked):
+  - `configs/locked/exp1_eval_v2_overhead_baseline_a.toml`
+  - `configs/locked/exp1_eval_v2_overhead_proposed.toml`
+- Seeds:
+  - N=10: 0–9
+  - N=30: 0–29
+- Git rev:
+  - `68633cbc621ede7ae7c6707931aa4cbdc87d5e92`
+
+### What we observed (post-run)
+From `artifacts/sweep_exp1_eval_v2_overhead_n30_r1/sweep_summary.json` (means over 30 seeds; bootstrap 95% CI on mean in brackets):
+
+- baseline_a:
+  - M3 avg loss mean: 8.106874574949789 [7.980880963174678, 8.238401043523462]
+  - M3b avg regret vs oracle mean: 6.688159750714315 [6.52519648683489, 6.85843257024988]
+  - M7 state bytes mean: 203.0 [203.0, 203.0]
+  - M8 stateview ms mean: 0.001209381230485936 [0.0011629191221436486, 0.0012781189552818735]
+  - M9 conflict budget size: 1.0 [1.0, 1.0]
+- proposed:
+  - M3 avg loss mean: 7.578379080092669 [7.459310416557605, 7.694805500764988]
+  - M3b avg regret vs oracle mean: 6.159664255857196 [6.0018871545262, 6.313025724145566]
+  - M7 state bytes mean: 205.72679999999997 [205.55040000000005, 205.90809]
+  - M8 stateview ms mean: 0.0013183570854986707 [0.001276485356502235, 0.0013883588637690991]
+  - M9 conflict budget size: 3.0 [3.0, 3.0]
+
+### What we changed (if any)
+- None (locked configs; N increased only).
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - locked overhead thresholds and sampling limits (M7–M9)
+  - matched seeds and workload generator parameters
+  - cost model and metric definitions
+
+### Next actions
+- If runtime remains acceptable, run a v2_overhead N=100 sweep under a new sweep id (no config changes).
+
 
 
 
