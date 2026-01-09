@@ -89,14 +89,16 @@ def generate_exp1_decisions(
 
         # Canonical evidence representation (sorted, minimal fields)
         ev_items = (
-            available[["source_id", "receipt_time", "value"]]
+            available[["source_id", "event_time", "receipt_time", "value"]]
             .sort_values(["receipt_time", "source_id"], kind="mergesort")
             .assign(receipt_time=lambda x: pd.to_datetime(x["receipt_time"], utc=False).astype("datetime64[us]"))
+            .assign(event_time=lambda x: pd.to_datetime(x["event_time"], utc=False).astype("datetime64[us]"))
         )
 
         ev_list = [
             {
                 "source_id": str(r.source_id),
+                "event_time": pd.Timestamp(r.event_time).isoformat(),
                 "receipt_time": pd.Timestamp(r.receipt_time).isoformat(),
                 "value": r.value,
             }

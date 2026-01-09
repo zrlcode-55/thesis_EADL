@@ -11,6 +11,7 @@ Semantics = Literal["baseline_a", "baseline_b", "proposed"]
 @dataclass(frozen=True)
 class EvidenceItem:
     source_id: str
+    event_time: str  # ISO string
     receipt_time: str  # ISO string
     value: Any
 
@@ -29,6 +30,7 @@ def parse_evidence_json(evidence_json: str) -> list[EvidenceItem]:
     return [
         EvidenceItem(
             source_id=str(r.get("source_id")),
+            event_time=str(r.get("event_time")),
             receipt_time=str(r.get("receipt_time")),
             value=r.get("value"),
         )
@@ -53,17 +55,24 @@ def state_view_from_evidence(
     if not ev:
         return StateView(semantics=semantics, conflict_size=0, candidates=())
 
-    # Stable order by receipt_time then source_id for deterministic selection
-    ev_sorted = sorted(ev, key=lambda x: (x.receipt_time, x.source_id))
+    # Stable orders for deterministic selection
+    by_receipt = sorted(ev, key=lambda x: (x.receipt_time, x.source_id))
+    by_event = sorted(ev, key=lambda x: (x.event_time, x.source_id))
 
-    if semantics in ("baseline_a", "baseline_b"):
-        chosen = ev_sorted[-1].value
+    if semantics == "baseline_a":
+        # Naive overwrite semantics: trusts event time (source time) and collapses to one value.
+        chosen = by_event[-1].value
+        return StateView(semantics=semantics, conflict_size=1, candidates=(chosen,))
+
+    if semantics == "baseline_b":
+        # LWW by receipt time: trusts arrival order and collapses to one value.
+        chosen = by_receipt[-1].value
         return StateView(semantics=semantics, conflict_size=1, candidates=(chosen,))
 
     if semantics == "proposed":
-        # Preserve all unique values, deterministically ordered by first appearance in ev_sorted.
+        # Preserve all unique values, deterministically ordered by first appearance in receipt order.
         seen = []
-        for item in ev_sorted:
+        for item in by_receipt:
             if item.value not in seen:
                 seen.append(item.value)
         return StateView(semantics=semantics, conflict_size=len(seen), candidates=tuple(seen))

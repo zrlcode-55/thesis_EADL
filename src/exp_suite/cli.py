@@ -134,11 +134,17 @@ def sweep(
             run_id = f"sweep_{sid}__{cfg_path.stem}__seed{seed}"
             run_dir = sweep_root / run_id
             if run_dir.exists():
-                # Resume mode: assume an existing run directory is complete; skip re-running.
-                completed += 1
-                if completed % progress_every == 0:
-                    write_progress(last_run_id=run_id)
-                continue
+                # Resume mode: only skip if the run manifest exists (completeness signal).
+                if (run_dir / "run_manifest.json").exists():
+                    completed += 1
+                    if completed % progress_every == 0:
+                        write_progress(last_run_id=run_id)
+                    continue
+                else:
+                    raise typer.BadParameter(
+                        f"Found incomplete run directory (missing run_manifest.json): {run_dir}. "
+                        "Delete it or choose a new sweep id."
+                    )
 
             manifest = execute_run(config_path=cfg_path, seed=seed, out_dir=sweep_root, run_id=run_id)
             run_entries.append(

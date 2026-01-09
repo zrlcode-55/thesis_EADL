@@ -16,12 +16,30 @@ class SummaryStats:
     std: float | None
     min: float | None
     max: float | None
+    ci_low: float | None
+    ci_high: float | None
 
 
-def _stats(values: list[float]) -> SummaryStats:
-    if not values:
-        return SummaryStats(count=0, mean=None, median=None, std=None, min=None, max=None)
+def _bootstrap_ci_mean(values: list[float], *, iters: int, seed: int, alpha: float = 0.05) -> tuple[float | None, float | None]:
+    if len(values) < 2:
+        return (None, None)
+    rng = np.random.default_rng(seed)
     arr = np.array(values, dtype=float)
+    n = arr.size
+    means = np.empty(iters, dtype=float)
+    for i in range(iters):
+        sample = rng.choice(arr, size=n, replace=True)
+        means[i] = float(sample.mean())
+    lo = float(np.quantile(means, alpha / 2))
+    hi = float(np.quantile(means, 1 - alpha / 2))
+    return (lo, hi)
+
+
+def _stats(values: list[float], *, ci_seed: int) -> SummaryStats:
+    if not values:
+        return SummaryStats(count=0, mean=None, median=None, std=None, min=None, max=None, ci_low=None, ci_high=None)
+    arr = np.array(values, dtype=float)
+    ci_low, ci_high = _bootstrap_ci_mean(values, iters=1000, seed=ci_seed)
     return SummaryStats(
         count=int(arr.size),
         mean=float(arr.mean()),
@@ -29,6 +47,8 @@ def _stats(values: list[float]) -> SummaryStats:
         std=float(arr.std(ddof=1)) if arr.size >= 2 else 0.0,
         min=float(arr.min()),
         max=float(arr.max()),
+        ci_low=ci_low,
+        ci_high=ci_high,
     )
 
 
@@ -105,8 +125,14 @@ def summarize_sweep(sweep_dir: Path, *, metrics_filename: str = "metrics.json") 
 
     system_summaries: dict[str, Any] = {}
     for system, metric_map in sorted(per_system.items(), key=lambda x: x[0]):
+        # Deterministic CI seed per (sweep_id, system) so reruns reproduce summaries.
+        sid = str(sweep_manifest.get("sweep_id") or "unknown")
+        ci_seed = int(np.frombuffer((sid + "|" + system).encode("utf-8"), dtype=np.uint8).sum())
         system_summaries[system] = {
-            "metrics": {name: _stats(vals).__dict__ for name, vals in sorted(metric_map.items(), key=lambda x: x[0])}
+            "metrics": {
+                name: _stats(vals, ci_seed=ci_seed).__dict__
+                for name, vals in sorted(metric_map.items(), key=lambda x: x[0])
+            }
         }
 
     return {
