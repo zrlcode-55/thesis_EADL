@@ -9,7 +9,7 @@ import typer
 
 from exp_suite import __version__
 from exp_suite.artifacts import write_json
-from exp_suite.grid import generate_grid_configs, summarize_grid_from_summaries
+from exp_suite.grid import generate_grid_configs, group_grid_configs_by_point, summarize_grid_from_summaries
 from exp_suite.manifest import try_git_rev, utc_now_iso
 from exp_suite.runner import execute_run
 from exp_suite.sweep import summarize_sweep
@@ -141,6 +141,138 @@ def grid_summarize_cmd(
         primary_metric=primary_metric,
     )
     typer.echo(f"Wrote grid summary to: {out_json} (rows={len(summary.get('rows', []))})")
+
+
+@app.command(name="grid-run")
+def grid_run_cmd(
+    config_dir: Path = typer.Option(
+        Path("configs/locked/exp1_grid_v1"),
+        "--config-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Directory containing generated grid_v1 configs.",
+    ),
+    experiment_id: str = typer.Option(
+        "exp1_grid_v1",
+        "--experiment-id",
+        help="Experiment id prefix used in grid config filenames.",
+    ),
+    out_dir: Path = typer.Option(Path("artifacts"), "--out", help="Artifacts root directory."),
+    sweep_prefix: str = typer.Option(
+        "exp1_grid_v1__A",
+        "--sweep-prefix",
+        help='Sweep id prefix for per-point sweeps (e.g., "exp1_grid_v1__A" or "exp1_grid_v1__B").',
+    ),
+    seed_start: int = typer.Option(0, "--seed-start", min=0, help="Inclusive seed range start."),
+    seed_end: int = typer.Option(29, "--seed-end", min=0, help="Inclusive seed range end."),
+    limit_points: int | None = typer.Option(
+        None,
+        "--limit-points",
+        min=1,
+        help="Optional cap on number of regime points to run (for runtime-smoke).",
+    ),
+    resume: bool = typer.Option(
+        True,
+        "--resume/--no-resume",
+        help="Resume-safe: skips only completed per-run dirs (requires run_manifest.json).",
+    ),
+    progress_every: int = typer.Option(10, "--progress-every", min=1, help="Write sweep_progress.json every N runs."),
+) -> None:
+    """Run the grid as a sequence of per-regime-point sweeps (baseline_a/baseline_b/proposed) with matched seeds."""
+    groups = group_grid_configs_by_point(config_dir, experiment_id=experiment_id)
+    if not groups:
+        raise typer.BadParameter(f"No grid configs found under: {config_dir} (experiment_id={experiment_id})")
+
+    point_keys = sorted(groups.keys())
+    if limit_points is not None:
+        point_keys = point_keys[: int(limit_points)]
+
+    seeds = list(range(int(seed_start), int(seed_end) + 1))
+    if not seeds:
+        raise typer.BadParameter("Empty seed set.")
+
+    # For each regime point, run one sweep containing all systems.
+    for point_key in point_keys:
+        sys_map = groups[point_key]
+        missing = [s for s in ("baseline_a", "baseline_b", "proposed") if s not in sys_map]
+        if missing:
+            raise typer.BadParameter(f"Regime point {point_key} missing systems: {missing}")
+
+        sid = f"{sweep_prefix}__{point_key}"
+        # Reuse the existing `sweep` command logic by invoking execute_run loop here would duplicate code;
+        # instead, call `execute_run` directly to build a sweep dir identical to `sweep`.
+        sweep_root = out_dir / f"sweep_{sid}"
+        if sweep_root.exists():
+            if not resume:
+                raise typer.BadParameter(f"Sweep directory already exists: {sweep_root} (use --resume)")
+            if (sweep_root / "sweep_manifest.json").exists():
+                # Already finalized; skip.
+                continue
+        else:
+            sweep_root.mkdir(parents=True, exist_ok=False)
+
+        run_entries = []
+        completed = 0
+        total = 3 * len(seeds)
+
+        def write_progress(last_run_id: str | None = None) -> None:
+            write_json(
+                sweep_root / "sweep_progress.json",
+                {
+                    "sweep_id": sid,
+                    "created_utc": utc_now_iso(),
+                    "git_rev": try_git_rev(Path(".").resolve()),
+                    "configs": [str(sys_map[s].as_posix()) for s in ("baseline_a", "baseline_b", "proposed")],
+                    "seeds": seeds,
+                    "completed": completed,
+                    "total": total,
+                    "last_run_id": last_run_id,
+                },
+            )
+
+        for sys_name in ("baseline_a", "baseline_b", "proposed"):
+            cfg_path = sys_map[sys_name]
+            for seed in seeds:
+                run_id = f"sweep_{sid}__{cfg_path.stem}__seed{seed}"
+                run_dir = sweep_root / run_id
+                if run_dir.exists():
+                    if (run_dir / "run_manifest.json").exists():
+                        completed += 1
+                        if completed % progress_every == 0:
+                            write_progress(last_run_id=run_id)
+                        continue
+                    raise typer.BadParameter(
+                        f"Found incomplete run directory (missing run_manifest.json): {run_dir}. "
+                        "Delete it or choose a new sweep prefix."
+                    )
+
+                manifest = execute_run(config_path=cfg_path, seed=seed, out_dir=sweep_root, run_id=run_id)
+                run_entries.append(
+                    {
+                        "run_id": manifest["run_id"],
+                        "system": manifest["config"].get("system"),
+                        "seed": manifest["seed"],
+                        "config_sha256": manifest.get("config_sha256"),
+                        "manifest_path": manifest["artifacts"]["manifest"],
+                        "metrics_path": manifest["artifacts"]["metrics"],
+                    }
+                )
+                completed += 1
+                if completed % progress_every == 0:
+                    write_progress(last_run_id=run_id)
+
+        sweep_manifest = {
+            "sweep_id": sid,
+            "created_utc": utc_now_iso(),
+            "git_rev": try_git_rev(Path(".").resolve()),
+            "configs": [str(sys_map[s].as_posix()) for s in ("baseline_a", "baseline_b", "proposed")],
+            "seeds": seeds,
+            "runs": run_entries,
+        }
+        write_json(sweep_root / "sweep_manifest.json", sweep_manifest)
+        write_progress(last_run_id="FINALIZED")
+        typer.echo(f"Wrote sweep to: {sweep_root}")
 
 
 @app.command()

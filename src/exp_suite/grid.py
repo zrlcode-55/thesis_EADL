@@ -246,3 +246,25 @@ def summarize_grid_from_summaries(
     return summary
 
 
+def group_grid_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
+    """Group grid configs by regime point key.
+
+    Expects filenames like:
+      {experiment_id}__{point_key}__{system}.toml
+
+    Returns:
+      {point_key: {system: path}}
+    """
+    groups: dict[str, dict[str, Path]] = {}
+    for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
+        stem = p.stem
+        parts = stem.split("__")
+        if len(parts) < 3:
+            continue
+        # parts[0] is experiment_id, parts[-1] is system, middle join is point_key
+        sys = parts[-1]
+        point_key = "__".join(parts[1:-1])
+        groups.setdefault(point_key, {})[sys] = p
+    return groups
+
+

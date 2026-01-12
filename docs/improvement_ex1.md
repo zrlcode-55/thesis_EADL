@@ -132,6 +132,49 @@ Each sweep produces:
 - `sweep_progress.json`
 - `sweep_summary.json` (includes deterministic bootstrap CIs for means)
 
+#### Exact CLI commands (recommended)
+
+Generate (one-time, preregistered) configs:
+
+```bash
+.\.venv\Scripts\exp-suite grid-generate --out-dir .\configs\locked\exp1_grid_v1 --experiment-id exp1_grid_v1
+```
+
+Run **Seed Set A** for a small smoke (runtime check; not for claims):
+
+```bash
+.\.venv\Scripts\exp-suite grid-run --sweep-prefix exp1_grid_v1__A_smoke --seed-start 0 --seed-end 9 --limit-points 2
+```
+
+Run **Seed Set A** (citable once grid is locked and committed):
+
+```bash
+.\.venv\Scripts\exp-suite grid-run --sweep-prefix exp1_grid_v1__A --seed-start 0 --seed-end 29
+```
+
+Run **Seed Set B** (confirmation holdout):
+
+```bash
+.\.venv\Scripts\exp-suite grid-run --sweep-prefix exp1_grid_v1__B --seed-start 30 --seed-end 59
+```
+
+Summarize per-sweep (writes `sweep_summary.json` in each sweep dir):
+
+```bash
+.\.venv\Scripts\exp-suite summarize-sweep --sweep-dir .\artifacts\sweep_<SWEEP_ID>
+```
+
+Grid-level aggregation (writes one grid summary JSON across all sweep summaries whose ids start with the prefix):
+
+```bash
+.\.venv\Scripts\exp-suite grid-summarize --sweep-prefix exp1_grid_v1__A --out-json .\artifacts\exp1_grid_v1_summary__A.json
+.\.venv\Scripts\exp-suite grid-summarize --sweep-prefix exp1_grid_v1__B --out-json .\artifacts\exp1_grid_v1_summary__B.json
+```
+
+Notes:
+- `grid-run` is **resume-safe**: it only skips runs that have `run_manifest.json`, and it refuses to silently accept incomplete run directories.
+- You can rerun `grid-run` to continue after interruptions; completed runs will be skipped.
+
 ### 5.3 Aggregate across regime points into a “regime map”
 
 Create a grid-level summary artifact:
