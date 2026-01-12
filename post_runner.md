@@ -342,6 +342,48 @@ Unknown. This batch is intended to validate throughput and begin collecting cita
 - Continue Seed Set A by running the next batch of regime points under a new sweep prefix (e.g., `exp1_grid_v1__A_1h_r2`) until the full grid is complete.
 - Once A is complete, run Seed Set B holdout (30–59) under `exp1_grid_v1__B`.
 
+### 2026-01-12 — Experiment 1 (Grid v1): Seed Set A “1-hour batch” #2 (EVAL)
+
+### Date:
+2026-01-12
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Continue Seed Set A grid execution in another chunk, without changing any preregistered definitions. Goal: expand the regime-map coverage while keeping execution resumable and auditable.
+
+### Hypothesis / expectation (pre-run)
+Unknown. This is continued characterization; we accept wins and losses as evidence.
+
+### Runs executed (artifact pointers)
+- Seed set: A = 0–29
+- Sweep prefix: `exp1_grid_v1__A_1h` (continued; additional regime points added)
+- New regime points executed (5 additional sweeps; each sweep = 90 runs):
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa5p00__cws0p10`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p50__cfa10p00__cws0p05`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p50__cfa10p00__cws0p10`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p50__cfa20p00__cws0p05`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p50__cfa20p00__cws0p10`
+- Grid-level updated summary artifact (now 10 regime points total under this prefix):
+  - `artifacts/exp1_grid_v1_summary__A_1h.json`
+- Git rev:
+  - `b8410f4`
+
+### What we observed (post-run)
+From `artifacts/exp1_grid_v1_summary__A_1h.json` (10 regime points total):
+- Proposed vs baseline_a on primary metric (M3b regret): wins 8 / 10; losses 2 / 10.
+- The two loss cases in this subset occur when `cost_false_act = 20.0` and `cost_wait_per_second = 0.05` under both tested delay sigmas (0.25 and 0.50), suggesting a boundary region where aggressive acting is very expensive.
+
+### What we changed (if any)
+- None.
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - grid_v1 configs, seed set A definition, policy definition, and metric code
+
+### Next actions
+- Continue Seed Set A in further 1-hour batches until all 54 regime points are covered, then run Seed Set B (30–59).
+
 
 
 
