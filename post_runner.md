@@ -288,6 +288,60 @@ From `artifacts/sweep_exp1_eval_v2_overhead_n30_r1/sweep_summary.json` (means ov
 ### Next actions
 - If runtime remains acceptable, run a v2_overhead N=100 sweep under a new sweep id (no config changes).
 
+### 2026-01-12 — Experiment 1 (Grid v1): Seed Set A “1-hour batch” (EVAL)
+
+### Date:
+2026-01-12
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Start the preregistered `grid_v1` characterization under Seed Set A (0–29) with a strict time budget (~1 hour). We ran a fixed number of regime points determined by measured throughput, not by outcomes.
+
+### Hypothesis / expectation (pre-run)
+Unknown. This batch is intended to validate throughput and begin collecting citable regime-map evidence without any adaptive pruning.
+
+### Runs executed (artifact pointers)
+- Grid config dir: `configs/locked/exp1_grid_v1/` (locked, committed)
+- Seed set: A = 0–29
+- Sweep prefix: `exp1_grid_v1__A_1h`
+- Regime points executed (5 sweeps; each sweep = 3 systems × 30 seeds = 90 runs):
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa10p00__cws0p05`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa10p00__cws0p10`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa20p00__cws0p05`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa20p00__cws0p10`
+  - `exp1_grid_v1__A_1h__cr0p01__sig0p25__cfa5p00__cws0p05`
+- Artifacts root: `artifacts/`
+- Grid-level batch summary artifact:
+  - `artifacts/exp1_grid_v1_summary__A_1h.json`
+- Git rev:
+  - `c93fd9d`
+
+### What we observed (post-run)
+- Throughput: 1 regime point at N=30 took ~645s (~10.75 minutes) → ~5 regime points fit in ~54 minutes.
+- Primary metric (M3b_avg_regret_vs_oracle) regime-map direction for this batch:
+  - Proposed vs baseline_a: wins 4 / 5 regime points (lower mean regret); losses 1 / 5.
+  - Proposed vs baseline_b: wins 4 / 5 regime points (baseline_a and baseline_b were equal for these points).
+- Per-point deltas (proposed minus baseline; negative is better):
+  - `...__cfa10__cws0p05`: -0.0227118991
+  - `...__cfa10__cws0p10`: -0.0364237982
+  - `...__cfa20__cws0p05`: +0.0044590842
+  - `...__cfa20__cws0p10`: -0.0008151648
+  - `...__cfa5__cws0p05`: -0.0435118991
+
+### What we changed (if any)
+- None (grid configs + seed set A + metric definitions unchanged).
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - preregistered grid_v1 config files and policy definition
+  - seed set A definition (0–29)
+  - inclusion/exclusion rules (artifact-derived, no manual deletion)
+
+### Next actions
+- Continue Seed Set A by running the next batch of regime points under a new sweep prefix (e.g., `exp1_grid_v1__A_1h_r2`) until the full grid is complete.
+- Once A is complete, run Seed Set B holdout (30–59) under `exp1_grid_v1__B`.
+
 
 
 
