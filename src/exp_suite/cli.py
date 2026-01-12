@@ -166,6 +166,12 @@ def grid_run_cmd(
     ),
     seed_start: int = typer.Option(0, "--seed-start", min=0, help="Inclusive seed range start."),
     seed_end: int = typer.Option(29, "--seed-end", min=0, help="Inclusive seed range end."),
+    start_index: int = typer.Option(
+        0,
+        "--start-index",
+        min=0,
+        help="Start index into the deterministically sorted regime-point list (for chunked execution).",
+    ),
     limit_points: int | None = typer.Option(
         None,
         "--limit-points",
@@ -185,6 +191,10 @@ def grid_run_cmd(
         raise typer.BadParameter(f"No grid configs found under: {config_dir} (experiment_id={experiment_id})")
 
     point_keys = sorted(groups.keys())
+    if start_index:
+        if start_index >= len(point_keys):
+            raise typer.BadParameter(f"--start-index {start_index} out of range (points={len(point_keys)})")
+        point_keys = point_keys[int(start_index) :]
     if limit_points is not None:
         point_keys = point_keys[: int(limit_points)]
 
