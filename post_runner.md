@@ -418,6 +418,11 @@ From `artifacts/exp1_grid_v1_summary__A.json` (20 regime points total):
 - Proposed vs baseline_a (M3b): wins 17 / 20, losses 3 / 20.
 - Proposed vs baseline_b (M3b): wins 17 / 20, losses 3 / 20.
 
+#### Update (same day): Seed Set A now at 25 / 54 regime points
+From `artifacts/exp1_grid_v1_summary__A.json` (25 regime points total):
+- Proposed vs baseline_a (M3b): wins 20 / 25, losses 5 / 25.
+- Proposed vs baseline_b (M3b): wins 20 / 25, losses 5 / 25.
+
 
 
 
