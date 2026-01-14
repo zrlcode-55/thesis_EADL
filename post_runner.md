@@ -384,6 +384,35 @@ From `artifacts/exp1_grid_v1_summary__A_1h.json` (10 regime points total):
 ### Next actions
 - Continue Seed Set A in further 1-hour batches until all 54 regime points are covered, then run Seed Set B (30–59).
 
+### 2026-01-12 — Experiment 1 (Grid v1): Seed Set A aggregate status (EVAL)
+
+### Date:
+2026-01-12
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Consolidate Seed Set A results across multiple execution prefixes into a single aggregate summary artifact, so progress can be tracked without relying on “batch-local” summaries.
+
+### Runs executed (artifact pointers)
+- Seed set: A = 0–29
+- Sweep prefixes included:
+  - `exp1_grid_v1__A_1h` (10 regime points)
+  - `exp1_grid_v1__A_r3` (5 regime points)
+- Combined summary artifact:
+  - `artifacts/exp1_grid_v1_summary__A.json`
+
+### What we observed (post-run)
+From `artifacts/exp1_grid_v1_summary__A.json` (15 regime points total):
+- Proposed vs baseline_a (primary metric M3b): wins 12 / 15, losses 3 / 15.
+- Proposed vs baseline_b (primary metric M3b): wins 12 / 15, losses 3 / 15.
+
+### What we changed (if any)
+- None (aggregation is artifact-derived only; no metric definitions changed).
+
+### Next actions
+- Continue Seed Set A until all 54 regime points are covered, then run Seed Set B (30–59) and compare A vs B regime-map stability.
+
 
 
 

@@ -246,6 +246,56 @@ def summarize_grid_from_summaries(
     return summary
 
 
+def summarize_grid_from_multiple_prefixes(
+    *,
+    artifacts_dir: Path,
+    sweep_prefixes: list[str],
+    out_json: Path,
+    primary_metric: str = "M3b_avg_regret_vs_oracle",
+    compare_against: tuple[str, ...] = ("baseline_a", "baseline_b"),
+) -> dict[str, Any]:
+    """Aggregate multiple sweep-id prefixes into one grid-level summary artifact.
+
+    Useful when Seed Set A is run in multiple chunks / prefixes (e.g., A_1h, A_r3).
+    """
+    rows: list[dict[str, Any]] = []
+    for pref in sweep_prefixes:
+        sub = summarize_grid_from_summaries(
+            artifacts_dir=artifacts_dir,
+            sweep_prefix=pref,
+            out_json=out_json.parent / f".tmp__{pref.replace(':','_').replace('/','_')}.json",
+            primary_metric=primary_metric,
+            compare_against=compare_against,
+        )
+        rows.extend(sub.get("rows", []))
+
+    # Deduplicate by sweep_id (should be unique across prefixes)
+    by_id: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        sid = r.get("sweep_id")
+        if not sid:
+            continue
+        by_id[sid] = r
+    rows = [by_id[k] for k in sorted(by_id.keys())]
+
+    summary: dict[str, Any] = {
+        "sweep_prefixes": sweep_prefixes,
+        "primary_metric": primary_metric,
+        "rows": rows,
+        "counts": {},
+    }
+    for b in compare_against:
+        deltas = [r.get(f"delta_proposed_minus_{b}") for r in rows if r.get(f"delta_proposed_minus_{b}") is not None]
+        wins = sum(1 for x in deltas if float(x) < 0.0)
+        losses = sum(1 for x in deltas if float(x) > 0.0)
+        ties = sum(1 for x in deltas if float(x) == 0.0)
+        summary["counts"][b] = {"n": len(deltas), "wins": wins, "losses": losses, "ties": ties}
+
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    return summary
+
+
 def group_grid_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
     """Group grid configs by regime point key.
 

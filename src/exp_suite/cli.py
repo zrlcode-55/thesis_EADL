@@ -9,7 +9,12 @@ import typer
 
 from exp_suite import __version__
 from exp_suite.artifacts import write_json
-from exp_suite.grid import generate_grid_configs, group_grid_configs_by_point, summarize_grid_from_summaries
+from exp_suite.grid import (
+    generate_grid_configs,
+    group_grid_configs_by_point,
+    summarize_grid_from_multiple_prefixes,
+    summarize_grid_from_summaries,
+)
 from exp_suite.manifest import try_git_rev, utc_now_iso
 from exp_suite.runner import execute_run
 from exp_suite.sweep import summarize_sweep
@@ -141,6 +146,42 @@ def grid_summarize_cmd(
         primary_metric=primary_metric,
     )
     typer.echo(f"Wrote grid summary to: {out_json} (rows={len(summary.get('rows', []))})")
+
+
+@app.command(name="grid-summarize-multi")
+def grid_summarize_multi_cmd(
+    artifacts_dir: Path = typer.Option(
+        Path("artifacts"),
+        "--artifacts-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Artifacts root directory containing sweep_* dirs.",
+    ),
+    sweep_prefixes: list[str] = typer.Option(
+        ...,
+        "--sweep-prefix",
+        help="Repeatable sweep-id prefix. Example: --sweep-prefix exp1_grid_v1__A_1h --sweep-prefix exp1_grid_v1__A_r3",
+    ),
+    out_json: Path = typer.Option(
+        Path("artifacts/exp1_grid_v1_summary__A.json"),
+        "--out-json",
+        help="Output JSON file path for the combined grid summary artifact.",
+    ),
+    primary_metric: str = typer.Option(
+        "M3b_avg_regret_vs_oracle",
+        "--primary-metric",
+        help="Primary metric used for win/loss counting (lower is better).",
+    ),
+) -> None:
+    """Aggregate multiple sweep prefixes into one grid-level summary artifact (e.g., combine Seed Set A chunks)."""
+    summary = summarize_grid_from_multiple_prefixes(
+        artifacts_dir=artifacts_dir,
+        sweep_prefixes=sweep_prefixes,
+        out_json=out_json,
+        primary_metric=primary_metric,
+    )
+    typer.echo(f"Wrote combined grid summary to: {out_json} (rows={len(summary.get('rows', []))})")
 
 
 @app.command(name="grid-run")
