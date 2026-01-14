@@ -413,6 +413,11 @@ From `artifacts/exp1_grid_v1_summary__A.json` (15 regime points total):
 ### Next actions
 - Continue Seed Set A until all 54 regime points are covered, then run Seed Set B (30–59) and compare A vs B regime-map stability.
 
+#### Update (same day): Seed Set A now at 20 / 54 regime points
+From `artifacts/exp1_grid_v1_summary__A.json` (20 regime points total):
+- Proposed vs baseline_a (M3b): wins 17 / 20, losses 3 / 20.
+- Proposed vs baseline_b (M3b): wins 17 / 20, losses 3 / 20.
+
 
 
 
