@@ -424,5 +424,47 @@ From `artifacts/exp1_grid_v1_summary__A.json` (25 regime points total):
 - Proposed vs baseline_b (M3b): wins 20 / 25, losses 5 / 25.
 
 
+### 2026-01-15 — Experiment 1 (Grid v1): Seed Set A rounds r6 + r7 (EVAL)
+
+### Date:
+2026-01-15
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Continue preregistered `grid_v1` Seed Set A (seeds 0–29) in additional resumable “round” chunks, without changing any locked configs, policies, or metric definitions.
+
+### Hypothesis / expectation (pre-run)
+Unknown. This is continued regime-map characterization; we accept wins and losses as evidence.
+
+### Runs executed (artifact pointers)
+- Sweep prefixes (each = 5 regime points; each point = 3 systems × 30 seeds = 90 runs):
+  - `exp1_grid_v1__A_r6`
+  - `exp1_grid_v1__A_r7`
+- Sweep dirs (examples; see `artifacts/sweep_exp1_grid_v1__A_r6__*` and `artifacts/sweep_exp1_grid_v1__A_r7__*`):
+  - `artifacts/sweep_exp1_grid_v1__A_r6__cr0p10__sig0p50__cfa5p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__A_r7__cr0p10__sig1p00__cfa10p00__cws0p05/`
+- Combined grid-level summary artifact (regenerated to include `A_r6` and `A_r7`):
+  - `artifacts/exp1_grid_v1_summary__A.json` (rows=25)
+
+### What we observed (post-run)
+From `artifacts/exp1_grid_v1_summary__A.json` (25 regime points total; primary metric M3b regret):
+- Proposed vs baseline_a: wins 20 / 25, losses 5 / 25.
+- Proposed vs baseline_b: wins 20 / 25, losses 5 / 25.
+
+Progress (coverage): Seed Set A is now at **35 / 54** regime points completed (across all A-prefixed sweeps, excluding smoke/estimate).
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only additional grid points executed and summary regenerated from artifacts.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set A definition (0–29)
+  - metric implementations and aggregation rules (artifact-derived)
+
+### Next actions
+- Continue Seed Set A to 54 / 54 (next chunk: `exp1_grid_v1__A_r8`), then run Seed Set B (30–59) under `exp1_grid_v1__B`.
+
 
 
