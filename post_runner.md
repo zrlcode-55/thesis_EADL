@@ -467,4 +467,49 @@ Progress (coverage): Seed Set A is now at **35 / 54** regime points completed (a
 - Continue Seed Set A to 54 / 54 (next chunk: `exp1_grid_v1__A_r8`), then run Seed Set B (30–59) under `exp1_grid_v1__B`.
 
 
+### 2026-01-16 — Experiment 1 (Grid v1): Seed Set A round r8 (EVAL)
+
+### Date:
+2026-01-16
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Continue preregistered `grid_v1` Seed Set A (seeds 0–29) in the next resumable “round” chunk, without changing any locked configs, policies, or metric definitions.
+
+### Hypothesis / expectation (pre-run)
+Unknown. Continued characterization; we accept wins and losses as evidence.
+
+### Runs executed (artifact pointers)
+- Sweep prefix: `exp1_grid_v1__A_r8`
+- Sweep dirs (5 regime points; 3 systems × 30 seeds = 90 runs each):
+  - `artifacts/sweep_exp1_grid_v1__A_r8__cr0p10__sig1p00__cfa5p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__A_r8__cr0p20__sig0p25__cfa10p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__A_r8__cr0p20__sig0p25__cfa10p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__A_r8__cr0p20__sig0p25__cfa20p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__A_r8__cr0p20__sig0p25__cfa20p00__cws0p10/`
+- Sweep summaries written:
+  - `artifacts/sweep_exp1_grid_v1__A_r8__*/sweep_summary.json`
+- Combined grid-level summary artifact (regenerated after writing r6–r8 sweep summaries):
+  - `artifacts/exp1_grid_v1_summary__A.json` (rows=40)
+
+### What we observed (post-run)
+From `artifacts/exp1_grid_v1_summary__A.json` (40 regime points total; primary metric M3b regret):
+- Proposed vs baseline_a: wins 29 / 40, losses 11 / 40.
+- Proposed vs baseline_b: wins 29 / 40, losses 11 / 40.
+
+Progress (coverage): Seed Set A is now at **40 / 54** regime points completed (excluding smoke/estimate).
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only additional grid points executed and summaries regenerated from artifacts.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set A definition (0–29)
+  - metric implementations and aggregation rules (artifact-derived)
+
+### Next actions
+- Continue Seed Set A to 54 / 54 (next chunk: `exp1_grid_v1__A_r9` with start-index 40), then run Seed Set B (30–59) under `exp1_grid_v1__B`.
+
 
