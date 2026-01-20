@@ -604,3 +604,45 @@ Progress (coverage): Seed Set A is now at **54 / 54** regime points completed.
 - Run Seed Set B holdout (seeds 30–59) over the same 54 regime points under a new sweep prefix family (e.g., `exp1_grid_v1__B_r1`, chunked 5 points at a time) and compare A vs B regime-map stability.
 
 
+### 2026-01-20 — Experiment 1 (Grid v1): Seed Set B holdout (Batch 1: 5 regime points) complete (EVAL)
+
+### Date:
+2026-01-20
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Run the first holdout chunk for Seed Set B (seeds 30–59) over 5 regime points (3 systems × 30 seeds each = 450 runs) using locked configs and existing metric code.
+
+### Hypothesis / expectation (pre-run)
+Holdout stability check: Seed Set B should broadly agree with Seed Set A (wins/losses may shift, but no obvious instrumentation/pathology).
+
+### Runs executed (artifact pointers)
+- Command:
+  - `.venv\\Scripts\\exp-suite.exe grid-run --sweep-prefix exp1_grid_v1__B_r1 --seed-start 30 --seed-end 59 --start-index 0 --limit-points 5 --resume`
+- Git revision recorded in artifacts: `bf397a0`
+- Sweep dirs (each 90/90, FINALIZED; each contains `sweep_manifest.json` and per-run `run_manifest.json`):
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p01__sig0p25__cfa10p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p01__sig0p25__cfa10p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p01__sig0p25__cfa20p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p01__sig0p25__cfa20p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p01__sig0p25__cfa5p00__cws0p05/`
+
+### Data integrity / “is this legit?”
+- Yes: run completeness is signaled by `run_manifest.json` written last (includes checksums for each artifact file); each sweep is marked complete by `sweep_manifest.json` and `sweep_progress.json` with `last_run_id = FINALIZED`.
+- “Resume oddness” seen during the run was due to the tool being strict about incomplete run dirs (missing `run_manifest.json`) while a run is mid-flight; we did not edit configs or code during execution.
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only additional holdout runs executed and artifacts written.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set B definition (30–59)
+  - metric implementations and aggregation rules (artifact-derived)
+
+### Next actions
+- Continue Seed Set B in 5-point batches until all 54 regime points are covered (next batch: `--start-index 5 --limit-points 5`).
+- After coverage is complete, generate/record the Seed Set B grid summary and compare A vs B regime-map stability.
+
+
