@@ -559,4 +559,48 @@ Note: An `A_r11` sweep directory exists but is **partial** (not finalized). We i
 ### Next actions
 - When ready, finish Seed Set A to 54 / 54 by completing `exp1_grid_v1__A_r11` (start-index 50, limit-points 4), then run Seed Set B (30–59).
 
+### 2026-01-20 — Experiment 1 (Grid v1): Seed Set A complete (54 / 54) (EVAL)
+
+### Date:
+2026-01-20
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Finish the remaining Seed Set A grid points for preregistered `grid_v1` (seeds 0–29), completing full 54/54 regime coverage under the locked configs and metrics.
+
+### Hypothesis / expectation (pre-run)
+Unknown. Continued characterization; we accept wins and losses as evidence.
+
+### Runs executed (artifact pointers)
+- Final chunk sweep prefix: `exp1_grid_v1__A_r11` (4 regime points; each = 3 systems × 30 seeds = 90 runs)
+- Sweep dirs:
+  - `artifacts/sweep_exp1_grid_v1__A_r11__cr0p20__sig1p00__cfa20p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__A_r11__cr0p20__sig1p00__cfa20p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__A_r11__cr0p20__sig1p00__cfa5p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__A_r11__cr0p20__sig1p00__cfa5p00__cws0p10/`
+- Sweep summaries written:
+  - `artifacts/sweep_exp1_grid_v1__A_r11__*/sweep_summary.json`
+- Combined grid-level summary artifact (full Seed Set A, 54 regime points):
+  - `artifacts/exp1_grid_v1_summary__A.json` (rows=54)
+
+### What we observed (post-run)
+From `artifacts/exp1_grid_v1_summary__A.json` (54 regime points total; primary metric M3b regret):
+- Proposed vs baseline_a: wins 38 / 54, losses 15 / 54, ties 0 / 54.
+- Proposed vs baseline_b: wins 39 / 54, losses 15 / 54, ties 0 / 54.
+
+Progress (coverage): Seed Set A is now at **54 / 54** regime points completed.
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only completion of remaining points and artifact-derived summaries.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set A definition (0–29)
+  - metric implementations and aggregation rules (artifact-derived)
+
+### Next actions
+- Run Seed Set B holdout (seeds 30–59) over the same 54 regime points under a new sweep prefix family (e.g., `exp1_grid_v1__B_r1`, chunked 5 points at a time) and compare A vs B regime-map stability.
+
 
