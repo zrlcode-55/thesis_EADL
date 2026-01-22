@@ -642,6 +642,31 @@ Holdout stability check: Seed Set B should broadly agree with Seed Set A (wins/l
   - metric implementations and aggregation rules (artifact-derived)
 
 
+### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (Final chunk: 4 regime points; indices 50–53) status update (EVAL)
+
+### Date:
+2026-01-22
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Complete the final Seed Set B holdout chunk (seeds 30–59) over the remaining 4 regime points (indices 50–53) under the same locked configs and metric code.
+
+### Runs executed (artifact pointers)
+- Command:
+  - `.venv\\Scripts\\exp-suite.exe grid-run --sweep-prefix exp1_grid_v1__B_r1 --seed-start 30 --seed-end 59 --start-index 50 --limit-points 4 --resume`
+- Git revision recorded in artifacts (from finalized sweeps): `5d1a517`
+- Sweep dirs written so far (each 90/90, FINALIZED):
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p20__sig1p00__cfa20p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p20__sig1p00__cfa20p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p20__sig1p00__cfa5p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p20__sig1p00__cfa5p00__cws0p10/`
+
+### Data integrity / completeness
+- As of this check, these sweeps are **90/90 FINALIZED** per `sweep_progress.json`, and the grid-run completed without error (`terminals/22.txt`).
+- This completes the final 4-point chunk (indices 50–53).
+
+
 ### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (Batch 10: 5 regime points; indices 45–49) started (EVAL)
 
 ### Date:
