@@ -642,6 +642,44 @@ Holdout stability check: Seed Set B should broadly agree with Seed Set A (wins/l
   - metric implementations and aggregation rules (artifact-derived)
 
 
+### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (Batch 10: 5 regime points; indices 45–49) started (EVAL)
+
+### Date:
+2026-01-22
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Continue Seed Set B holdout (seeds 30–59) with the next 5 regime points (indices 45–49) under the same locked configs and metric code.
+
+### Hypothesis / expectation (pre-run)
+Holdout stability check: performance trends should broadly match Seed Set A.
+
+### Runs executed (artifact pointers)
+- Command:
+  - `.venv\\Scripts\\exp-suite.exe grid-run --sweep-prefix exp1_grid_v1__B_r1 --seed-start 30 --seed-end 59 --start-index 45 --limit-points 5 --resume`
+- Git revision recorded in artifacts (from first completed sweep in this batch): `1aad146`
+- Regime points intended (indices 45–49):
+  - `cr0p20__sig0p50__cfa20p00__cws0p10`
+  - `cr0p20__sig0p50__cfa5p00__cws0p05`
+  - `cr0p20__sig0p50__cfa5p00__cws0p10`
+  - `cr0p20__sig1p00__cfa10p00__cws0p05`
+  - `cr0p20__sig1p00__cfa10p00__cws0p10`
+
+### Data integrity / completeness
+- This batch was started in `--resume` mode (idempotent with respect to completed runs).
+- Status: in progress at time of writing. When complete, we will record the 5 sweep dirs and verify **90/90 FINALIZED** for each.
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only additional holdout runs executed and artifacts written.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set B definition (30–59)
+  - metric implementations and aggregation rules (artifact-derived)
+
+
 ### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (Batch 8: 5 regime points; indices 35–39) complete (EVAL)
 
 ### Date:
