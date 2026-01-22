@@ -809,4 +809,80 @@ Holdout stability check: performance trends should broadly match Seed Set A.
 - Continue Seed Set B in 5-point batches until all 54 regime points are covered (next batch: `--start-index 25 --limit-points 5`).
 - After coverage is complete, generate/record the Seed Set B grid summary and compare A vs B regime-map stability.
 
+### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (Batch 6: 5 regime points; indices 25–29) complete (EVAL)
+
+### Date:
+2026-01-22
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Finish the final Seed Set B holdout chunk (seeds 30–59) over the last 5 regime points (indices 25–29), completing the preregistered `grid_v1` holdout coverage for the `exp1_grid_v1__B_r1` prefix.
+
+### Hypothesis / expectation (pre-run)
+Holdout stability check: Seed Set B should broadly agree with Seed Set A regime-map directionality (wins/losses may shift, but no obvious instrumentation/pathology).
+
+### Runs executed (artifact pointers)
+- Command:
+  - `.venv\\Scripts\\exp-suite.exe grid-run --sweep-prefix exp1_grid_v1__B_r1 --seed-start 30 --seed-end 59 --start-index 25 --limit-points 5 --resume`
+- Git revision recorded in artifacts: `e1ce133`
+- Sweep dirs (each 90/90, FINALIZED; each contains `sweep_manifest.json` and per-run `run_manifest.json`):
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p10__sig0p50__cfa10p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p10__sig0p50__cfa20p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p10__sig0p50__cfa20p00__cws0p10/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p10__sig0p50__cfa5p00__cws0p05/`
+  - `artifacts/sweep_exp1_grid_v1__B_r1__cr0p10__sig0p50__cfa5p00__cws0p10/`
+
+### Data integrity / completeness
+- All 5 sweeps are **90/90 FINALIZED** (`sweep_progress.json` has `last_run_id = FINALIZED` and `completed = total = 90`).
+- For these sweeps, per-run subdirs have `run_manifest.json`, and per-run subdirs have `metrics.json`.
+- Note: during monitoring we observed the CLI’s strictness around incomplete run dirs (missing `run_manifest.json`) while a run is mid-flight; this affected resumability but did not change configs or code during execution.
+
+### What we changed (if any)
+- None. (No code/config/policy/metric changes; only additional holdout runs executed and artifacts written.)
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set B definition (30–59)
+  - metric implementations and aggregation rules (artifact-derived)
+
+### Next actions
+- Generate/record the Seed Set B grid summary artifact and compare A vs B regime-map stability.
+
+### 2026-01-22 — Experiment 1 (Grid v1): Seed Set B holdout (`exp1_grid_v1__B_r1`) audit + summary artifact (EVAL)
+
+### Date:
+2026-01-22
+
+### Phase: EVAL
+
+### Context / intent (1–3 sentences)
+Confirm that the full Seed Set B holdout artifacts for `exp1_grid_v1__B_r1` are complete and non-duplicated (committee-defensible “on disk truth”), then write the grid-level summary artifact for downstream A vs B comparison.
+
+### Runs executed (artifact pointers)
+- Sweep dirs: `artifacts/sweep_exp1_grid_v1__B_r1__*/` (30 sweeps total; 54 grid points are covered by Seed Set B only after all batches, but `B_r1` here is the executed holdout subset in this run family)
+- Grid-level summary artifact:
+  - `artifacts/exp1_grid_v1_summary__B_r1.json` (rows=30; primary metric `M3b_avg_regret_vs_oracle`)
+
+### Data integrity / “is this legit?”
+- All `artifacts/sweep_exp1_grid_v1__B_r1__*` sweep dirs contain both `sweep_progress.json` and `sweep_manifest.json`.
+- All 30 sweeps are **90/90 FINALIZED** per `sweep_progress.json`.
+- All 30 `sweep_manifest.json` files list **90 run entries**, and on disk there are **2700** run directories with `run_manifest.json` (and `metrics.json`).
+- One extra directory exists that is explicitly labeled orphaned:
+  - `...__baseline_a__seed39.ORPHANED_20260120T161909` (has `metrics.json` but intentionally no `run_manifest.json`; excluded from audit counts and kept for provenance).
+
+### What we changed (if any)
+- **Artifact bookkeeping repairs (no config/metric changes)**:
+  - Recreated two missing per-run directories using `exp-suite run` with explicit `--run-id` into the correct sweep directories (so the referenced run IDs in sweep manifests now exist on disk).
+  - Rebuilt two `sweep_manifest.json` files from per-run `run_manifest.json` (resume bookkeeping had produced incomplete manifests). Backups were saved as `sweep_manifest.json.bak__pre_rebuild`.
+  - These changes do not alter locked configs or metric definitions; they repair metadata completeness for auditability and summarization.
+
+### What we did NOT change (explicit)
+- Kept fixed:
+  - `configs/locked/exp1_grid_v1/*` (locked grid configs)
+  - seed set B definition (30–59)
+  - metric implementations and aggregation rules (artifact-derived)
+
+
 
