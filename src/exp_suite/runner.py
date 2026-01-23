@@ -12,10 +12,10 @@ from exp_suite.artifacts import (
     write_json,
     write_parquet_table,
 )
-from exp_suite.config import Exp1Config, load_config_toml
+from exp_suite.config import Exp1Config, Exp2Config, load_config_toml
 from exp_suite.decisions import generate_exp1_decisions
 from exp_suite.manifest import build_run_manifest
-from exp_suite.metrics import compute_exp1_metrics
+from exp_suite.metrics import compute_exp1_metrics, compute_exp2_metrics
 from exp_suite.reconciliation import generate_exp1_reconciliation
 from exp_suite.schemas import decision_schema, evidence_set_schema, event_schema, reconciliation_schema
 from exp_suite.state import summarize_state
@@ -79,6 +79,29 @@ def execute_run(
 
         # Metrics derived ONLY from artifacts.
         metrics = compute_exp1_metrics(
+            decisions=dec.decisions,
+            evidence_sets=dec.evidence_sets,
+            reconciliation=reconciliation,
+            cfg=cfg,
+        )
+        write_json(Path(paths["metrics"]), metrics)
+    elif isinstance(cfg, Exp2Config):
+        # Exp2 reuses the Exp1 evidence stream + reconciliation alignment, but uses Exp2 metrics.
+        events = generate_exp1_events(cfg, seed=seed)  # type: ignore[arg-type]
+        write_parquet_table(Path(paths["events"]), events)
+
+        reconciliation = generate_exp1_reconciliation(events, cfg, seed=seed)  # type: ignore[arg-type]
+        write_parquet_table(Path(paths["reconciliation"]), reconciliation)
+
+        events_df = events.to_pandas()
+        summary = summarize_state(events_df, semantics=cfg.system)
+        write_json(Path(paths["state_summary"]), summary.__dict__)
+
+        dec = generate_exp1_decisions(events, cfg, seed=seed, policy=cfg.policy)
+        write_parquet_table(Path(paths["decisions"]), dec.decisions)
+        write_parquet_table(Path(paths["evidence_sets"]), dec.evidence_sets)
+
+        metrics = compute_exp2_metrics(
             decisions=dec.decisions,
             evidence_sets=dec.evidence_sets,
             reconciliation=reconciliation,

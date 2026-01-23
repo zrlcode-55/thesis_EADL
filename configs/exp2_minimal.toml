@@ -1,0 +1,38 @@
+kind = "exp2"
+phase = "dev"
+experiment_id = "exp2_minimal"
+system = "baseline_a"
+notes = "Minimal Exp2 dev config (mechanics + artifacts)."
+
+entity_count = 20
+source_count = 3
+events_per_entity = 20
+
+conflict_rate = 0.10
+missingness = 0.02
+
+decision_lag_seconds = 0.0
+policy = "wait_on_conflict"
+
+reconciliation_lag_seconds = 30.0
+
+cost_false_act = 5.0
+cost_false_wait = 10.0
+
+[wait_cost]
+family = "linear"
+[wait_cost.params]
+per_second = 0.1
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0
+
+

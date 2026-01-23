@@ -96,10 +96,82 @@ def _render_exp1_toml(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_exp2_toml(data: dict[str, Any]) -> str:
+    """Render a minimal TOML for Exp2Config (we avoid adding a TOML writer dependency)."""
+    delay = data.pop("delay")
+    recon_jitter = data.pop("reconciliation_jitter")
+    wait_cost = data.pop("wait_cost")
+
+    lines: list[str] = []
+    root_order = [
+        "kind",
+        "phase",
+        "experiment_id",
+        "system",
+        "notes",
+        "entity_count",
+        "source_count",
+        "events_per_entity",
+        "conflict_rate",
+        "missingness",
+        "decision_lag_seconds",
+        "policy",
+        "reconciliation_lag_seconds",
+        "cost_false_act",
+        "cost_false_wait",
+    ]
+    for k in root_order:
+        if k not in data:
+            continue
+        v = data[k]
+        if v is None:
+            continue
+        if isinstance(v, str):
+            lines.append(f'{k} = "{_toml_escape(v)}"')
+        elif isinstance(v, bool):
+            lines.append(f"{k} = {'true' if v else 'false'}")
+        else:
+            lines.append(f"{k} = {v}")
+
+    # wait_cost table
+    lines.append("")
+    lines.append("[wait_cost]")
+    lines.append(f'family = "{_toml_escape(str(wait_cost["family"]))}"')
+    lines.append("[wait_cost.params]")
+    for pk, pv in (wait_cost.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    # Delay table
+    lines.append("")
+    lines.append("[delay]")
+    lines.append(f'family = "{_toml_escape(str(delay["family"]))}"')
+    lines.append("[delay.params]")
+    for pk, pv in (delay.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    # Reconciliation jitter table
+    lines.append("")
+    lines.append("[reconciliation_jitter]")
+    lines.append(f'family = "{_toml_escape(str(recon_jitter["family"]))}"')
+    lines.append("[reconciliation_jitter.params]")
+    for pk, pv in (recon_jitter.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def load_base_exp1_config(path: Path) -> dict[str, Any]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     if data.get("kind") != "exp1":
         raise ValueError(f"Expected exp1 config at: {path}")
+    return data
+
+
+def load_base_exp2_config(path: Path) -> dict[str, Any]:
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    if data.get("kind") != "exp2":
+        raise ValueError(f"Expected exp2 config at: {path}")
     return data
 
 
@@ -176,6 +248,71 @@ def generate_grid_configs(
             fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
             path = out_dir / fname
             path.write_text(_render_exp1_toml(dict(data)), encoding="utf-8")
+            written.append(path)
+
+    return written
+
+
+def generate_exp2_grid_configs(
+    *,
+    base_config_path: Path,
+    out_dir: Path,
+    experiment_id: str,
+    systems: list[str],
+    conflict_rates: list[float],
+    delay_sigmas: list[float],
+    cost_false_acts: list[float],
+    wait_cost_per_seconds: list[float],
+) -> list[Path]:
+    """Generate a preregistered regime grid of locked Exp2 eval configs.
+
+    Exp2 differs from Exp1 primarily in the WAIT cost model (curvature). For grid_v1 we keep
+    the same 54-point structure by varying a linear per-second coefficient.
+    """
+    base = load_base_exp2_config(base_config_path)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    points = iter_grid_points(
+        conflict_rates=conflict_rates,
+        delay_sigmas=delay_sigmas,
+        cost_false_acts=cost_false_acts,
+        cost_wait_per_seconds=wait_cost_per_seconds,
+    )
+
+    written: list[Path] = []
+    for p in points:
+        for sys in systems:
+            data = dict(base)
+            data["phase"] = "eval"
+            data["experiment_id"] = experiment_id
+            data["system"] = sys
+            data["notes"] = f"Locked exp2 grid point {p.key()} (do not edit)."
+
+            # Vary preregistered regime axes
+            data["conflict_rate"] = p.conflict_rate
+
+            delay = dict(data["delay"])
+            delay_params = dict(delay.get("params", {}))
+            delay["family"] = "lognormal"
+            delay_params.setdefault("mu", 0.0)
+            delay_params["sigma"] = p.delay_sigma
+            delay["params"] = delay_params
+            data["delay"] = delay
+
+            data["cost_false_act"] = p.cost_false_act
+
+            # For grid_v1: keep family linear; vary per_second
+            wc = dict(data.get("wait_cost", {"family": "linear", "params": {"per_second": 0.1}}))
+            wc["family"] = "linear"
+            wc_params = dict(wc.get("params", {}) or {})
+            wc_params["per_second"] = p.cost_wait_per_second
+            wc["params"] = wc_params
+            data["wait_cost"] = wc
+
+            fname = f"{experiment_id}__{p.key()}__{sys}.toml"
+            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+            path = out_dir / fname
+            path.write_text(_render_exp2_toml(dict(data)), encoding="utf-8")
             written.append(path)
 
     return written

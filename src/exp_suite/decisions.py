@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from exp_suite.config import Exp1Config
+from exp_suite.config import Exp1Config, Exp2Config
 from exp_suite.schemas import decision_schema, evidence_set_schema
 from exp_suite.state_view import parse_evidence_json, state_view_from_evidence
 
@@ -43,7 +43,7 @@ def _extract_timepoint_evidence(events_df: pd.DataFrame) -> pd.DataFrame:
 
 def generate_exp1_decisions(
     events: pa.Table,
-    cfg: Exp1Config,
+    cfg: Exp1Config | Exp2Config,
     *,
     seed: int,
     policy: PolicyId = "wait_on_conflict",
@@ -126,7 +126,7 @@ def generate_exp1_decisions(
             # Expected-loss threshold rule:
             # p = proxy probability that outcome is needs_act, based on conflict size.
             # E[L(ACT)]  = (1 - p) * cost_false_act
-            # E[L(WAIT)] = p * cost_false_wait + cost_wait_per_second * E[wait_seconds]
+            # E[L(WAIT)] = p * cost_false_wait + wait_cost(E[wait_seconds])
             # Choose ACT iff E[L(ACT)] <= E[L(WAIT)]
 
             # Proxy p: how much disagreement exists, normalized by max possible.
@@ -152,7 +152,11 @@ def generate_exp1_decisions(
             e_wait_seconds = max(0.0, base_lag + exp_jitter)
 
             e_act = (1.0 - p) * float(cfg.cost_false_act)
-            e_wait = (p * float(cfg.cost_false_wait)) + (float(cfg.cost_wait_per_second) * e_wait_seconds)
+            if isinstance(cfg, Exp2Config):
+                e_wait_delay_cost = float(cfg.wait_cost.cost(e_wait_seconds))
+            else:
+                e_wait_delay_cost = float(cfg.cost_wait_per_second) * e_wait_seconds
+            e_wait = (p * float(cfg.cost_false_wait)) + e_wait_delay_cost
 
             action = "ACT" if e_act <= e_wait else "WAIT"
             confidence = p

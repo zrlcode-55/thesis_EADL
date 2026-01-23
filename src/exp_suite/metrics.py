@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from exp_suite.config import Exp1Config
+from exp_suite.config import Exp1Config, Exp2Config
 from exp_suite.state_view import parse_evidence_json, state_view_from_evidence
 
 
@@ -230,6 +230,126 @@ def compute_exp1_metrics(
             "M8_stateview_ms_max": m8_max,
             "M9_conflict_budget_size": budget,
             "M8_sampled_decision_points": int(len(es2)),
+        },
+    }
+
+
+def _loss_for_action_exp2(
+    *,
+    action: Action,
+    outcome: str,
+    wait_seconds: float,
+    cfg: Exp2Config,
+) -> float:
+    # Base classification losses
+    if outcome == "ok":
+        base = cfg.cost_false_act if action == "ACT" else 0.0
+    elif outcome == "needs_act":
+        base = cfg.cost_false_wait if action == "WAIT" else 0.0
+    else:
+        return float("nan")
+
+    delay_cost = cfg.wait_cost.cost(wait_seconds) if action == "WAIT" else 0.0
+    return float(base + delay_cost)
+
+
+def compute_exp2_metrics(
+    *,
+    decisions: pa.Table,
+    evidence_sets: pa.Table,
+    reconciliation: pa.Table,
+    cfg: Exp2Config,
+) -> dict[str, Any]:
+    """Compute artifact-derived metrics for Exp2 (cost-aware timing policies).
+
+    Exp2 focuses on cost aggregates + tail behavior + induced delay:
+    - total/avg cost
+    - tail costs (p95/p99)
+    - deferral rate (WAIT fraction)
+    - waiting time distributions
+    """
+    if decisions.num_rows == 0:
+        return {
+            "status": "no_decisions",
+            "metrics": {},
+        }
+
+    dec = decisions.to_pandas()
+    es = evidence_sets.to_pandas()
+    rec = reconciliation.to_pandas()
+
+    dec2 = dec.merge(es[["evidence_set_id", "entity_id", "t_idx"]], on="evidence_set_id", how="left")
+
+    rec_parsed = rec["authoritative_outcome_json"].map(json.loads)
+    rec2 = rec.copy()
+    rec2["outcome"] = rec_parsed.map(lambda p: p.get("outcome"))
+    rec2["t_idx"] = rec_parsed.map(lambda p: int(p.get("t_idx")))
+
+    joined = dec2.merge(
+        rec2[["entity_id", "t_idx", "arrival_time", "outcome"]],
+        on=["entity_id", "t_idx"],
+        how="left",
+    )
+
+    joined["wait_seconds"] = (
+        (pd.to_datetime(joined["arrival_time"]) - pd.to_datetime(joined["decision_time"]))
+        .dt.total_seconds()
+        .clip(lower=0.0)
+    )
+
+    losses = []
+    for r in joined.itertuples(index=False):
+        if pd.isna(r.outcome):
+            losses.append(float("nan"))
+            continue
+        action: Action = r.action_id
+        wait_s = float(r.wait_seconds) if not pd.isna(r.wait_seconds) else 0.0
+        losses.append(_loss_for_action_exp2(action=action, outcome=r.outcome, wait_seconds=wait_s, cfg=cfg))
+
+    joined["loss"] = losses
+
+    valid = joined[~pd.isna(joined["loss"])].copy()
+    total_decisions = int(len(joined))
+    n_valid = int(len(valid))
+    if n_valid == 0:
+        return {
+            "status": "no_labeled_decisions",
+            "definitions": {"note": "No reconciliation labels joined to decisions."},
+            "metrics": {"decisions_total": total_decisions},
+        }
+
+    # Deferral (WAIT) rate is computed over labeled decisions.
+    valid["is_wait"] = valid["action_id"].astype(str).eq("WAIT")
+
+    total_cost = float(valid["loss"].sum())
+    avg_cost = float(valid["loss"].mean())
+    p95_cost = float(np.quantile(valid["loss"].to_numpy(dtype=float), 0.95))
+    p99_cost = float(np.quantile(valid["loss"].to_numpy(dtype=float), 0.99))
+
+    deferral_rate = float(valid["is_wait"].mean())
+    mean_wait_all = float(valid["wait_seconds"].mean())
+    mean_wait_when_wait = float(valid.loc[valid["is_wait"], "wait_seconds"].mean()) if valid["is_wait"].any() else 0.0
+
+    return {
+        "status": "ok",
+        "definitions": {
+            "loss_model": {
+                "cost_false_act": cfg.cost_false_act,
+                "cost_false_wait": cfg.cost_false_wait,
+                "wait_cost": {"family": cfg.wait_cost.family, "params": dict(cfg.wait_cost.params)},
+            },
+            "induced_delay": "wait_seconds = reconciliation_arrival_time - decision_time (clipped at 0).",
+        },
+        "metrics": {
+            "decisions_total": total_decisions,
+            "decisions_labeled": n_valid,
+            "M3_total_cost": total_cost,
+            "M3_avg_cost": avg_cost,
+            "M4_p95_cost": p95_cost,
+            "M4_p99_cost": p99_cost,
+            "M5_deferral_rate": deferral_rate,
+            "M2_mean_wait_seconds": mean_wait_all,
+            "M2_mean_wait_seconds_when_wait": mean_wait_when_wait,
         },
     }
 

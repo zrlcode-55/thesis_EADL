@@ -11,6 +11,7 @@ from exp_suite import __version__
 from exp_suite.artifacts import write_json
 from exp_suite.grid import (
     generate_grid_configs,
+    generate_exp2_grid_configs,
     group_grid_configs_by_point,
     summarize_grid_from_multiple_prefixes,
     summarize_grid_from_summaries,
@@ -108,6 +109,66 @@ def grid_generate_cmd(
         delay_sigmas=delay_sigmas,
         cost_false_acts=cost_false_acts,
         cost_wait_per_seconds=cost_wait_per_seconds,
+    )
+    typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
+
+
+@app.command(name="exp2-grid-generate")
+def exp2_grid_generate_cmd(
+    out_dir: Path = typer.Option(
+        Path("configs/locked/exp2_grid_v1"),
+        "--out-dir",
+        help="Output directory for generated locked Exp2 grid configs.",
+    ),
+    base_config: Path = typer.Option(
+        Path("configs/locked/exp2_eval_v1_baseline_a.toml"),
+        "--base-config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Base locked exp2 config used as a template (will be overridden per system + regime axes).",
+    ),
+    experiment_id: str = typer.Option(
+        "exp2_grid_v1",
+        "--experiment-id",
+        help="Experiment id to write into generated configs (also used in filenames).",
+    ),
+    systems: list[str] = typer.Option(
+        ["baseline_a", "baseline_b", "proposed"],
+        "--system",
+        help="Systems to generate configs for. Repeat --system to override defaults.",
+    ),
+    conflict_rates: list[float] = typer.Option(
+        [0.01, 0.10, 0.20],
+        "--conflict-rate",
+        help="Conflict rate axis values. Repeat --conflict-rate to override defaults.",
+    ),
+    delay_sigmas: list[float] = typer.Option(
+        [0.25, 0.50, 1.00],
+        "--delay-sigma",
+        help="Lognormal sigma axis values. Repeat --delay-sigma to override defaults.",
+    ),
+    cost_false_acts: list[float] = typer.Option(
+        [5.0, 10.0, 20.0],
+        "--cost-false-act",
+        help="Axis values for cost_false_act. Repeat to override defaults.",
+    ),
+    wait_cost_per_seconds: list[float] = typer.Option(
+        [0.05, 0.10],
+        "--wait-cost-per-second",
+        help="Axis values for linear wait cost per second. Repeat to override defaults.",
+    ),
+) -> None:
+    """Generate a preregistered regime grid of locked Exp2 eval configs (grid_v1)."""
+    written = generate_exp2_grid_configs(
+        base_config_path=base_config,
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        systems=systems,
+        conflict_rates=conflict_rates,
+        delay_sigmas=delay_sigmas,
+        cost_false_acts=cost_false_acts,
+        wait_cost_per_seconds=wait_cost_per_seconds,
     )
     typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
 
@@ -515,7 +576,7 @@ def recompute_sweep_metrics_cmd(
     from pydantic import TypeAdapter
 
     from exp_suite.config import ExperimentConfig
-    from exp_suite.metrics import compute_exp1_metrics
+    from exp_suite.metrics import compute_exp1_metrics, compute_exp2_metrics
 
     sweep_manifest_path = sweep_dir / "sweep_manifest.json"
     if not sweep_manifest_path.exists():
@@ -548,7 +609,8 @@ def recompute_sweep_metrics_cmd(
         try:
             man = json.loads(manifest_path.read_text(encoding="utf-8"))
             cfg = TypeAdapter(ExperimentConfig).validate_python(man["config"])
-            if getattr(cfg, "kind", None) != "exp1":
+            kind = getattr(cfg, "kind", None)
+            if kind not in {"exp1", "exp2"}:
                 skipped += 1
                 continue
 
@@ -556,12 +618,20 @@ def recompute_sweep_metrics_cmd(
             evidence_sets = pq.read_table(run_dir / "evidence_sets.parquet")
             reconciliation = pq.read_table(run_dir / "reconciliation.parquet")
 
-            metrics = compute_exp1_metrics(
-                decisions=decisions,
-                evidence_sets=evidence_sets,
-                reconciliation=reconciliation,
-                cfg=cfg,
-            )
+            if kind == "exp1":
+                metrics = compute_exp1_metrics(
+                    decisions=decisions,
+                    evidence_sets=evidence_sets,
+                    reconciliation=reconciliation,
+                    cfg=cfg,  # type: ignore[arg-type]
+                )
+            else:
+                metrics = compute_exp2_metrics(
+                    decisions=decisions,
+                    evidence_sets=evidence_sets,
+                    reconciliation=reconciliation,
+                    cfg=cfg,  # type: ignore[arg-type]
+                )
             write_json(out_path, metrics)
             updated += 1
         except Exception as e:
