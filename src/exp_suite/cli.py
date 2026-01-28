@@ -12,7 +12,9 @@ from exp_suite.artifacts import write_json
 from exp_suite.grid import (
     generate_grid_configs,
     generate_exp2_grid_configs,
+    generate_exp2_policy_sweep_configs,
     group_grid_configs_by_point,
+    group_exp2_policy_configs_by_point,
     summarize_grid_from_multiple_prefixes,
     summarize_grid_from_summaries,
 )
@@ -169,6 +171,76 @@ def exp2_grid_generate_cmd(
         delay_sigmas=delay_sigmas,
         cost_false_acts=cost_false_acts,
         wait_cost_per_seconds=wait_cost_per_seconds,
+    )
+    typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
+
+
+@app.command(name="exp2-policy-generate")
+def exp2_policy_generate_cmd(
+    out_dir: Path = typer.Option(
+        Path("configs/locked/exp2_policy_v1"),
+        "--out-dir",
+        help="Output directory for generated locked Exp2 policy-sweep configs.",
+    ),
+    base_config: Path = typer.Option(
+        Path("configs/locked/exp2_policy_v1_base.toml"),
+        "--base-config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Base locked exp2 config used as a template (semantics + evidence regime kept fixed).",
+    ),
+    experiment_id: str = typer.Option(
+        "exp2_policy_v1",
+        "--experiment-id",
+        help="Experiment id to write into generated configs (also used in filenames).",
+    ),
+    fixed_system: str = typer.Option(
+        "proposed",
+        "--fixed-system",
+        help="State semantics system to hold fixed across all policies (preregistered Exp2 contract).",
+    ),
+    policy: list[str] = typer.Option(
+        ["always_act", "always_wait", "wait_on_conflict", "risk_threshold"],
+        "--policy",
+        help="Policy variants to generate. Repeat --policy to override defaults.",
+    ),
+    linear_per_second: list[float] = typer.Option(
+        [0.01, 0.05],
+        "--linear-per-second",
+        help="Linear wait-cost per-second coefficients (curvature axis). Repeat to override defaults.",
+    ),
+    quadratic_k: list[float] = typer.Option(
+        [0.001, 0.01],
+        "--quadratic-k",
+        help="Quadratic wait-cost k coefficients (curvature axis). Repeat to override defaults.",
+    ),
+    exponential: list[str] = typer.Option(
+        ["0.5,0.1", "1.0,0.1"],
+        "--exponential",
+        help="Exponential wait-cost parameter pairs 'k,alpha'. Repeat to override defaults.",
+    ),
+) -> None:
+    """Generate locked Exp2 configs where state semantics are fixed and policy varies (plus wait-cost curvature)."""
+    wait_cost_models = []
+    for ps in linear_per_second:
+        wait_cost_models.append({"family": "linear", "params": {"per_second": float(ps)}})
+    for k in quadratic_k:
+        wait_cost_models.append({"family": "quadratic", "params": {"k": float(k)}})
+    for s in exponential:
+        try:
+            k_str, a_str = [x.strip() for x in str(s).split(",", maxsplit=1)]
+            wait_cost_models.append({"family": "exponential", "params": {"k": float(k_str), "alpha": float(a_str)}})
+        except Exception as e:
+            raise typer.BadParameter(f"Invalid --exponential value '{s}'. Expected 'k,alpha'. Error: {e}") from e
+
+    written = generate_exp2_policy_sweep_configs(
+        base_config_path=base_config,
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        fixed_system=fixed_system,
+        policies=policy,
+        wait_cost_models=wait_cost_models,
     )
     typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
 
@@ -363,7 +435,7 @@ def grid_run_cmd(
                 run_entries.append(
                     {
                         "run_id": manifest["run_id"],
-                        "system": manifest["config"].get("system"),
+                        "system": manifest["config"].get("variant") or manifest["config"].get("system"),
                         "seed": manifest["seed"],
                         "config_sha256": manifest.get("config_sha256"),
                         "manifest_path": manifest["artifacts"]["manifest"],
@@ -379,6 +451,149 @@ def grid_run_cmd(
             "created_utc": utc_now_iso(),
             "git_rev": try_git_rev(Path(".").resolve()),
             "configs": [str(sys_map[s].as_posix()) for s in ("baseline_a", "baseline_b", "proposed")],
+            "seeds": seeds,
+            "runs": run_entries,
+        }
+        write_json(sweep_root / "sweep_manifest.json", sweep_manifest)
+        write_progress(last_run_id="FINALIZED")
+        typer.echo(f"Wrote sweep to: {sweep_root}")
+
+
+@app.command(name="exp2-policy-run")
+def exp2_policy_run_cmd(
+    config_dir: Path = typer.Option(
+        Path("configs/locked/exp2_policy_v1"),
+        "--config-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Directory containing generated Exp2 policy-sweep configs.",
+    ),
+    experiment_id: str = typer.Option(
+        "exp2_policy_v1",
+        "--experiment-id",
+        help="Experiment id prefix used in policy-sweep config filenames.",
+    ),
+    out_dir: Path = typer.Option(Path("artifacts/exp2_policy"), "--out", help="Artifacts root directory."),
+    sweep_prefix: str = typer.Option(
+        "exp2_policy_v1__A",
+        "--sweep-prefix",
+        help='Sweep id prefix for per-waitcost sweeps (e.g., "exp2_policy_v1__A" or "exp2_policy_v1__B").',
+    ),
+    seed_start: int = typer.Option(0, "--seed-start", min=0, help="Inclusive seed range start."),
+    seed_end: int = typer.Option(29, "--seed-end", min=0, help="Inclusive seed range end."),
+    start_index: int = typer.Option(
+        0,
+        "--start-index",
+        min=0,
+        help="Start index into the deterministically sorted wait-cost list (for chunked execution).",
+    ),
+    limit_points: int | None = typer.Option(
+        None,
+        "--limit-points",
+        min=1,
+        help="Optional cap on number of wait-cost points to run (for runtime-smoke).",
+    ),
+    policy: list[str] = typer.Option(
+        ["always_act", "always_wait", "wait_on_conflict", "risk_threshold"],
+        "--policy",
+        help="Policy variants expected in each wait-cost point. Repeat to override defaults.",
+    ),
+    resume: bool = typer.Option(
+        True,
+        "--resume/--no-resume",
+        help="Resume-safe: skips only completed per-run dirs (requires run_manifest.json).",
+    ),
+    progress_every: int = typer.Option(10, "--progress-every", min=1, help="Write sweep_progress.json every N runs."),
+) -> None:
+    """Run Exp2 as a sequence of per-waitcost sweeps with matched seeds across policy variants."""
+    groups = group_exp2_policy_configs_by_point(config_dir, experiment_id=experiment_id)
+    if not groups:
+        raise typer.BadParameter(f"No policy configs found under: {config_dir} (experiment_id={experiment_id})")
+
+    point_keys = sorted(groups.keys())
+    if start_index:
+        if start_index >= len(point_keys):
+            raise typer.BadParameter(f"--start-index {start_index} out of range (points={len(point_keys)})")
+        point_keys = point_keys[int(start_index) :]
+    if limit_points is not None:
+        point_keys = point_keys[: int(limit_points)]
+
+    seeds = list(range(int(seed_start), int(seed_end) + 1))
+    if not seeds:
+        raise typer.BadParameter("Empty seed set.")
+
+    for point_key in point_keys:
+        pol_map = groups[point_key]
+        missing = [p for p in policy if p not in pol_map]
+        if missing:
+            raise typer.BadParameter(f"Wait-cost point {point_key} missing policies: {missing}")
+
+        sid = f"{sweep_prefix}__{point_key}"
+        sweep_root = out_dir / f"sweep_{sid}"
+        if sweep_root.exists():
+            if not resume:
+                raise typer.BadParameter(f"Sweep directory already exists: {sweep_root} (use --resume)")
+            if (sweep_root / "sweep_manifest.json").exists():
+                continue
+        else:
+            sweep_root.mkdir(parents=True, exist_ok=False)
+
+        run_entries = []
+        completed = 0
+        total = len(policy) * len(seeds)
+
+        def write_progress(last_run_id: str | None = None) -> None:
+            write_json(
+                sweep_root / "sweep_progress.json",
+                {
+                    "sweep_id": sid,
+                    "created_utc": utc_now_iso(),
+                    "git_rev": try_git_rev(Path(".").resolve()),
+                    "configs": [str(pol_map[p].as_posix()) for p in policy],
+                    "seeds": seeds,
+                    "completed": completed,
+                    "total": total,
+                    "last_run_id": last_run_id,
+                },
+            )
+
+        for pol in policy:
+            cfg_path = pol_map[pol]
+            for seed in seeds:
+                run_id = f"sweep_{sid}__{cfg_path.stem}__seed{seed}"
+                run_dir = sweep_root / run_id
+                if run_dir.exists():
+                    if (run_dir / "run_manifest.json").exists():
+                        completed += 1
+                        if completed % progress_every == 0:
+                            write_progress(last_run_id=run_id)
+                        continue
+                    raise typer.BadParameter(
+                        f"Found incomplete run directory (missing run_manifest.json): {run_dir}. "
+                        "Delete it or choose a new sweep prefix."
+                    )
+
+                manifest = execute_run(config_path=cfg_path, seed=seed, out_dir=sweep_root, run_id=run_id)
+                run_entries.append(
+                    {
+                        "run_id": manifest["run_id"],
+                        "system": manifest["config"].get("variant") or manifest["config"].get("system"),
+                        "seed": manifest["seed"],
+                        "config_sha256": manifest.get("config_sha256"),
+                        "manifest_path": manifest["artifacts"]["manifest"],
+                        "metrics_path": manifest["artifacts"]["metrics"],
+                    }
+                )
+                completed += 1
+                if completed % progress_every == 0:
+                    write_progress(last_run_id=run_id)
+
+        sweep_manifest = {
+            "sweep_id": sid,
+            "created_utc": utc_now_iso(),
+            "git_rev": try_git_rev(Path(".").resolve()),
+            "configs": [str(pol_map[p].as_posix()) for p in policy],
             "seeds": seeds,
             "runs": run_entries,
         }
@@ -490,7 +705,7 @@ def sweep(
             run_entries.append(
                 {
                     "run_id": manifest["run_id"],
-                    "system": manifest["config"].get("system"),
+                    "system": manifest["config"].get("variant") or manifest["config"].get("system"),
                     "seed": manifest["seed"],
                     "config_sha256": manifest.get("config_sha256"),
                     "manifest_path": manifest["artifacts"]["manifest"],

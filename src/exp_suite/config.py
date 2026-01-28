@@ -159,6 +159,10 @@ class Exp2Config(BaseModel):
     experiment_id: str = Field(..., min_length=1)
     system: Literal["baseline_a", "baseline_b", "proposed"]
     notes: str | None = None
+    variant: str | None = Field(
+        default=None,
+        description="Optional label for sweep grouping (e.g., policy id) without changing state semantics.",
+    )
 
     # Workload knobs (intentionally aligned with Exp1 to allow shared evidence streams)
     entity_count: PositiveInt = Field(..., description="Number of entities in the synthetic workload.")

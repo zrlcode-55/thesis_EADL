@@ -5,6 +5,10 @@ Exp2 is preregistered in `readme_baseline.md` as **“Cost-Aware Decision Polici
 - **Reuses** the same synthetic evidence stream generator and reconciliation alignment (so we can make matched comparisons)
 - **Varies** decision policies and **WAIT cost curvature** (linear vs nonlinear waiting penalty)
 
+> **Thesis note (defensibility)**: The preregistered Exp2 isolation principle is **state semantics fixed; policy varies**.
+> The earlier `exp2_grid_v1` “3 systems × 54 regimes” run is useful as a legacy comparison, but it is **not** the strict Exp2 isolation design.
+> For the thesis-defensible Exp2, use **`exp2_policy_v1`** (policy sweep) below.
+
 ### Where Exp2 lives (organization)
 
 - **Configs**:
@@ -87,6 +91,64 @@ exp-suite grid-run `
   --seed-start 30 --seed-end 59 `
   --resume
 ```
+
+### Running Exp2 as a thesis-defensible policy sweep (Exp2 Policy v1)
+
+This is the **recommended** Exp2 execution for the thesis:
+
+- **Semantics held fixed**: `system="proposed"` by default
+- **Policies vary** within each sweep: `always_act`, `always_wait`, `wait_on_conflict`, `risk_threshold`
+- **Curvature varies** across regime points: linear/quadratic/exponential wait-cost families (preregistered defaults)
+
+#### 0) Generate locked policy-sweep configs
+
+```powershell
+exp-suite exp2-policy-generate --out-dir .\configs\locked\exp2_policy_v1 --experiment-id exp2_policy_v1
+```
+
+#### 1) Smoke test
+
+```powershell
+exp-suite exp2-policy-run `
+  --config-dir .\configs\locked\exp2_policy_v1 `
+  --experiment-id exp2_policy_v1 `
+  --out C:\exp2_policy_artifacts `
+  --sweep-prefix exp2_policy_v1__A_smoke `
+  --seed-start 0 --seed-end 2 `
+  --limit-points 2 `
+  --resume `
+  --progress-every 1
+```
+
+#### 2) Seed Set A (analysis)
+
+```powershell
+exp-suite exp2-policy-run `
+  --config-dir .\configs\locked\exp2_policy_v1 `
+  --experiment-id exp2_policy_v1 `
+  --out C:\exp2_policy_artifacts `
+  --sweep-prefix exp2_policy_v1__A `
+  --seed-start 0 --seed-end 29 `
+  --resume
+```
+
+#### 3) Seed Set B (holdout)
+
+```powershell
+exp-suite exp2-policy-run `
+  --config-dir .\configs\locked\exp2_policy_v1 `
+  --experiment-id exp2_policy_v1 `
+  --out C:\exp2_policy_artifacts `
+  --sweep-prefix exp2_policy_v1__B `
+  --seed-start 30 --seed-end 59 `
+  --resume
+```
+
+#### One-click runner
+
+If you want a single “do it all” script (generate + smoke + A + B), use:
+
+- `scripts/run_exp2_policy_v1.ps1`
 
 ### WAIT cost curvature (the Exp2 axis)
 

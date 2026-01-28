@@ -108,6 +108,7 @@ def _render_exp2_toml(data: dict[str, Any]) -> str:
         "phase",
         "experiment_id",
         "system",
+        "variant",
         "notes",
         "entity_count",
         "source_count",
@@ -316,6 +317,88 @@ def generate_exp2_grid_configs(
             written.append(path)
 
     return written
+
+
+def _slug_kv(k: str, v: float) -> str:
+    return f"{k}{_slug_float(float(v))}"
+
+
+def _wait_cost_key(wait_cost: dict[str, Any]) -> str:
+    fam = str(wait_cost.get("family", "")).strip()
+    params = dict(wait_cost.get("params", {}) or {})
+    if fam == "linear":
+        return f"wc_linear__{_slug_kv('ps', float(params.get('per_second', 0.0)))}"
+    if fam == "quadratic":
+        return f"wc_quadratic__{_slug_kv('k', float(params.get('k', 0.0)))}"
+    if fam == "exponential":
+        return f"wc_exponential__{_slug_kv('k', float(params.get('k', 0.0)))}__{_slug_kv('a', float(params.get('alpha', 0.0)))}"
+    # Fallback: stable-ish
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", fam or "unknown")
+    return f"wc_{safe}"
+
+
+def generate_exp2_policy_sweep_configs(
+    *,
+    base_config_path: Path,
+    out_dir: Path,
+    experiment_id: str,
+    fixed_system: str,
+    policies: list[str],
+    wait_cost_models: list[dict[str, Any]],
+) -> list[Path]:
+    """Generate locked Exp2 configs where **state semantics are fixed** and **policy varies**.
+
+    Output naming scheme:
+      {experiment_id}__{wait_cost_key}__{policy}.toml
+
+    Each file sets:
+      - system = fixed_system
+      - variant = policy   (so sweeps compare policies as "systems" in summaries)
+      - policy = policy
+      - wait_cost = one of wait_cost_models
+    """
+    base = load_base_exp2_config(base_config_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    written: list[Path] = []
+    for wc in wait_cost_models:
+        point_key = _wait_cost_key(wc)
+        for pol in policies:
+            data = dict(base)
+            data["phase"] = "eval"
+            data["experiment_id"] = experiment_id
+            data["system"] = fixed_system
+            data["variant"] = pol
+            data["policy"] = pol
+            data["wait_cost"] = dict(wc)
+            data["notes"] = f"Locked exp2 policy sweep {point_key} / {pol} (do not edit)."
+
+            fname = f"{experiment_id}__{point_key}__{pol}.toml"
+            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+            path = out_dir / fname
+            path.write_text(_render_exp2_toml(dict(data)), encoding="utf-8")
+            written.append(path)
+
+    return written
+
+
+def group_exp2_policy_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
+    """Group Exp2 policy configs into regime points.
+
+    Expects filenames: {experiment_id}__{point_key}__{policy}.toml
+    Returns: {point_key: {policy: path}}
+    """
+    groups: dict[str, dict[str, Path]] = {}
+    for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
+        parts = p.stem.split("__")
+        if len(parts) < 3:
+            continue
+        if parts[0] != experiment_id:
+            continue
+        point_key = "__".join(parts[1:-1])
+        pol = parts[-1]
+        groups.setdefault(point_key, {})[pol] = p
+    return groups
 
 
 def summarize_grid_from_summaries(
