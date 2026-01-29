@@ -162,6 +162,89 @@ def _render_exp2_toml(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_exp3_toml(data: dict[str, Any]) -> str:
+    """Render a minimal TOML for Exp3Config (we avoid adding a TOML writer dependency)."""
+    delay = data.pop("delay")
+    recon_jitter = data.pop("reconciliation_jitter")
+    wait_cost = data.pop("wait_cost")
+    shock = data.pop("shock")
+
+    lines: list[str] = []
+    root_order = [
+        "kind",
+        "phase",
+        "experiment_id",
+        "system",
+        "variant",
+        "notes",
+        "entity_count",
+        "source_count",
+        "events_per_entity",
+        "conflict_rate",
+        "missingness",
+        "decision_lag_seconds",
+        "policy",
+        "reconciliation_lag_seconds",
+        "cost_false_act",
+        "cost_false_wait",
+        "correctness_epsilon",
+        "inherits_from_exp2_config_path",
+        "inherits_from_exp2_config_sha256",
+        "enforce_inheritance",
+    ]
+    for k in root_order:
+        if k not in data:
+            continue
+        v = data[k]
+        if v is None:
+            continue
+        if isinstance(v, str):
+            lines.append(f'{k} = "{_toml_escape(v)}"')
+        elif isinstance(v, bool):
+            lines.append(f"{k} = {'true' if v else 'false'}")
+        else:
+            lines.append(f"{k} = {v}")
+
+    # wait_cost table
+    lines.append("")
+    lines.append("[wait_cost]")
+    lines.append(f'family = "{_toml_escape(str(wait_cost["family"]))}"')
+    lines.append("[wait_cost.params]")
+    for pk, pv in (wait_cost.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    # shock table
+    lines.append("")
+    lines.append("[shock]")
+    lines.append(f'shape = "{_toml_escape(str(shock.get("shape", "identity")))}"')
+    lines.append(f"magnitude = {float(shock.get('magnitude', 1.0))}")
+    lines.append(f"start_frac = {float(shock.get('start_frac', 0.0))}")
+    lines.append(f"duration_frac = {float(shock.get('duration_frac', 0.2))}")
+    # TOML array of strings
+    apply_to = shock.get("apply_to", []) or []
+    apply_to = [str(x) for x in apply_to]
+    lines.append(f"apply_to = [{', '.join('\"' + _toml_escape(x) + '\"' for x in apply_to)}]")
+
+    # Delay table
+    lines.append("")
+    lines.append("[delay]")
+    lines.append(f'family = "{_toml_escape(str(delay["family"]))}"')
+    lines.append("[delay.params]")
+    for pk, pv in (delay.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    # Reconciliation jitter table
+    lines.append("")
+    lines.append("[reconciliation_jitter]")
+    lines.append(f'family = "{_toml_escape(str(recon_jitter["family"]))}"')
+    lines.append("[reconciliation_jitter.params]")
+    for pk, pv in (recon_jitter.get("params", {}) or {}).items():
+        lines.append(f"{pk} = {pv}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def load_base_exp1_config(path: Path) -> dict[str, Any]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     if data.get("kind") != "exp1":
@@ -174,6 +257,85 @@ def load_base_exp2_config(path: Path) -> dict[str, Any]:
     if data.get("kind") != "exp2":
         raise ValueError(f"Expected exp2 config at: {path}")
     return data
+
+
+def _slug_shape(s: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", (s or "unknown")).strip("_")
+
+
+def _shock_key(shock: dict[str, Any]) -> str:
+    shape = _slug_shape(str(shock.get("shape", "identity")))
+    mag = float(shock.get("magnitude", 1.0))
+    start = float(shock.get("start_frac", 0.0))
+    dur = float(shock.get("duration_frac", 0.2))
+    return f"shock_{shape}__m{_slug_float(mag)}__s{_slug_float(start)}__d{_slug_float(dur)}"
+
+
+def generate_exp3_shock_sweep_configs(
+    *,
+    base_exp2_config_path: Path,
+    out_dir: Path,
+    experiment_id: str,
+    fixed_system: str,
+    policies: list[str],
+    shock_models: list[dict[str, Any]],
+    inherits_from_path: str | None = None,
+    inherits_from_sha256: str | None = None,
+    enforce_inheritance: bool = False,
+) -> list[Path]:
+    """Generate locked Exp3 configs where state semantics are fixed, policy varies, and shock varies across points.
+
+    Output naming scheme:
+      {experiment_id}__{shock_key}__{policy}.toml
+    """
+    base = load_base_exp2_config(base_exp2_config_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    written: list[Path] = []
+    for shock in shock_models:
+        point_key = _shock_key(shock)
+        for pol in policies:
+            data = dict(base)
+            data["kind"] = "exp3"
+            data["phase"] = "eval"
+            data["experiment_id"] = experiment_id
+            data["system"] = fixed_system
+            data["variant"] = pol
+            data["policy"] = pol
+            data["shock"] = dict(shock)
+            data["notes"] = f"Locked exp3 shock sweep {point_key} / {pol} (do not edit)."
+            if inherits_from_path is not None:
+                data["inherits_from_exp2_config_path"] = str(inherits_from_path)
+            if inherits_from_sha256 is not None:
+                data["inherits_from_exp2_config_sha256"] = str(inherits_from_sha256)
+            data["enforce_inheritance"] = bool(enforce_inheritance)
+
+            fname = f"{experiment_id}__{point_key}__{pol}.toml"
+            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+            path = out_dir / fname
+            path.write_text(_render_exp3_toml(dict(data)), encoding="utf-8")
+            written.append(path)
+
+    return written
+
+
+def group_exp3_shock_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
+    """Group Exp3 shock configs into shock points.
+
+    Expects filenames: {experiment_id}__{point_key}__{policy}.toml
+    Returns: {point_key: {policy: path}}
+    """
+    groups: dict[str, dict[str, Path]] = {}
+    for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
+        parts = p.stem.split("__")
+        if len(parts) < 3:
+            continue
+        if parts[0] != experiment_id:
+            continue
+        point_key = "__".join(parts[1:-1])
+        pol = parts[-1]
+        groups.setdefault(point_key, {})[pol] = p
+    return groups
 
 
 def iter_grid_points(

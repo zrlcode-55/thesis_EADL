@@ -11,6 +11,7 @@ import pyarrow as pa
 
 from exp_suite.config import Exp1Config, Exp2Config
 from exp_suite.schemas import decision_schema, evidence_set_schema
+from exp_suite.shocks import maybe_get_shock, normalized_time_from_t_idx, shock_scales_for_components
 from exp_suite.state_view import parse_evidence_json, state_view_from_evidence
 
 
@@ -151,12 +152,21 @@ def generate_exp1_decisions(
                     exp_jitter = float(np.exp(mu + 0.5 * (sigma**2)))
             e_wait_seconds = max(0.0, base_lag + exp_jitter)
 
-            e_act = (1.0 - p) * float(cfg.cost_false_act)
+            # Exp3: allow exogenous shock to modulate cost regime over time (decision-time view).
+            shock = maybe_get_shock(cfg)
+            t_frac = normalized_time_from_t_idx(t_idx=int(t_idx), events_per_entity=int(getattr(cfg, "events_per_entity", 0) or 0))
+            scales = shock_scales_for_components(shock, t_frac) if shock is not None else {"cost_false_act": 1.0, "cost_false_wait": 1.0, "wait_cost": 1.0}
+
+            cost_false_act = float(cfg.cost_false_act) * float(scales["cost_false_act"])
+            cost_false_wait = float(cfg.cost_false_wait) * float(scales["cost_false_wait"])
+            wait_cost_scale = float(scales["wait_cost"])
+
+            e_act = (1.0 - p) * cost_false_act
             if isinstance(cfg, Exp2Config):
-                e_wait_delay_cost = float(cfg.wait_cost.cost(e_wait_seconds))
+                e_wait_delay_cost = float(cfg.wait_cost.cost(e_wait_seconds)) * wait_cost_scale
             else:
                 e_wait_delay_cost = float(cfg.cost_wait_per_second) * e_wait_seconds
-            e_wait = (p * float(cfg.cost_false_wait)) + e_wait_delay_cost
+            e_wait = (p * cost_false_wait) + e_wait_delay_cost
 
             action = "ACT" if e_act <= e_wait else "WAIT"
             confidence = p

@@ -1,0 +1,42 @@
+kind = "exp2"
+phase = "eval"
+experiment_id = "exp2_policy_v2"
+system = "proposed"
+variant = "BASE_DO_NOT_RUN"
+notes = "Base template for Exp2 policy sweep v2 (semantics + evidence regime fixed). Generated configs override policy/variant/wait_cost."
+
+# Fixed workload regime (held fixed under Exp2 isolation principle)
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.10
+missingness = 0.05
+decision_lag_seconds = 0.0
+
+# Policy and costs (policy is overridden per variant; losses fixed)
+policy = "wait_on_conflict"
+cost_false_act = 10.0
+cost_false_wait = 10.0
+
+reconciliation_lag_seconds = 30.0
+
+[wait_cost]
+family = "linear"
+
+[wait_cost.params]
+per_second = 0.05
+
+[delay]
+family = "lognormal"
+
+[delay.params]
+mu = 0.0
+sigma = 0.50
+
+[reconciliation_jitter]
+family = "fixed"
+
+[reconciliation_jitter.params]
+seconds = 0.0
+
+

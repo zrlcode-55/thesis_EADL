@@ -13,8 +13,10 @@ from exp_suite.grid import (
     generate_grid_configs,
     generate_exp2_grid_configs,
     generate_exp2_policy_sweep_configs,
+    generate_exp3_shock_sweep_configs,
     group_grid_configs_by_point,
     group_exp2_policy_configs_by_point,
+    group_exp3_shock_configs_by_point,
     summarize_grid_from_multiple_prefixes,
     summarize_grid_from_summaries,
 )
@@ -241,6 +243,117 @@ def exp2_policy_generate_cmd(
         fixed_system=fixed_system,
         policies=policy,
         wait_cost_models=wait_cost_models,
+    )
+    typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
+
+
+@app.command(name="exp3-shock-generate")
+def exp3_shock_generate_cmd(
+    out_dir: Path = typer.Option(
+        Path("configs/locked/exp3_shock_v1"),
+        "--out-dir",
+        help="Output directory for generated locked Exp3 shock-sweep configs.",
+    ),
+    base_exp2_config: Path = typer.Option(
+        Path("configs/locked/exp2_policy_v1_base.toml"),
+        "--base-exp2-config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Base locked Exp2 config used as the inherited apparatus for Exp3.",
+    ),
+    experiment_id: str = typer.Option(
+        "exp3_shock_v1",
+        "--experiment-id",
+        help="Experiment id prefix used in generated config filenames.",
+    ),
+    fixed_system: str = typer.Option(
+        "proposed",
+        "--fixed-system",
+        help="State semantics system to hold fixed across all policies (inherits Exp2 contract).",
+    ),
+    policy: list[str] = typer.Option(
+        ["always_act", "always_wait", "wait_on_conflict", "risk_threshold"],
+        "--policy",
+        help="Policy variants to generate. Repeat --policy to override defaults.",
+    ),
+    shock_shape: list[str] = typer.Option(
+        ["identity", "step", "impulse", "ramp"],
+        "--shock-shape",
+        help="Shock shapes to generate. Repeat to override defaults.",
+    ),
+    shock_magnitude: list[float] = typer.Option(
+        [1.0, 2.0, 5.0, 10.0],
+        "--shock-magnitude",
+        help="Shock multipliers to generate. Repeat to override defaults.",
+    ),
+    shock_timing: list[str] = typer.Option(
+        ["early", "late"],
+        "--shock-timing",
+        help="Timing labels mapped to start_frac. Allowed: early, late (repeatable).",
+    ),
+    shock_duration_frac: float = typer.Option(
+        0.2,
+        "--shock-duration-frac",
+        min=0.0,
+        max=1.0,
+        help="Shock duration as a fraction of episode time in [0,1].",
+    ),
+    apply_to: list[str] = typer.Option(
+        ["cost_false_act", "cost_false_wait", "wait_cost"],
+        "--apply-to",
+        help="Cost components to shock. Repeat to override defaults.",
+    ),
+    enforce_inheritance: bool = typer.Option(
+        False,
+        "--enforce-inheritance/--no-enforce-inheritance",
+        help="If enabled, Exp3 runs will verify they inherit the exact base Exp2 config (hash check).",
+    ),
+) -> None:
+    """Generate locked Exp3 configs where Exp2 apparatus is inherited and only the shock schedule varies across points."""
+    # Deterministic mapping for timing labels
+    timing_map = {"early": 0.2, "late": 0.7}
+    starts = []
+    for t in shock_timing:
+        if t not in timing_map:
+            raise typer.BadParameter(f"Invalid --shock-timing '{t}'. Allowed: early, late.")
+        starts.append(float(timing_map[t]))
+
+    # Compute canonical sha256 of the base Exp2 config JSON (for optional inheritance enforcement).
+    from exp_suite.config import load_config_toml, Exp2Config
+    import hashlib
+    import json
+
+    base_cfg = load_config_toml(base_exp2_config)
+    if not isinstance(base_cfg, Exp2Config):
+        raise typer.BadParameter(f"--base-exp2-config must be kind=exp2: {base_exp2_config}")
+    base_json = json.dumps(base_cfg.model_dump(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    base_sha = hashlib.sha256(base_json).hexdigest()
+
+    shock_models = []
+    for shape in shock_shape:
+        for mag in shock_magnitude:
+            for start in starts:
+                shock_models.append(
+                    {
+                        "shape": str(shape),
+                        "magnitude": float(mag),
+                        "start_frac": float(start),
+                        "duration_frac": float(shock_duration_frac),
+                        "apply_to": list(apply_to),
+                    }
+                )
+
+    written = generate_exp3_shock_sweep_configs(
+        base_exp2_config_path=base_exp2_config,
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        fixed_system=fixed_system,
+        policies=policy,
+        shock_models=shock_models,
+        inherits_from_path=str(base_exp2_config.as_posix()),
+        inherits_from_sha256=str(base_sha),
+        enforce_inheritance=bool(enforce_inheritance),
     )
     typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
 
@@ -528,6 +641,149 @@ def exp2_policy_run_cmd(
         missing = [p for p in policy if p not in pol_map]
         if missing:
             raise typer.BadParameter(f"Wait-cost point {point_key} missing policies: {missing}")
+
+        sid = f"{sweep_prefix}__{point_key}"
+        sweep_root = out_dir / f"sweep_{sid}"
+        if sweep_root.exists():
+            if not resume:
+                raise typer.BadParameter(f"Sweep directory already exists: {sweep_root} (use --resume)")
+            if (sweep_root / "sweep_manifest.json").exists():
+                continue
+        else:
+            sweep_root.mkdir(parents=True, exist_ok=False)
+
+        run_entries = []
+        completed = 0
+        total = len(policy) * len(seeds)
+
+        def write_progress(last_run_id: str | None = None) -> None:
+            write_json(
+                sweep_root / "sweep_progress.json",
+                {
+                    "sweep_id": sid,
+                    "created_utc": utc_now_iso(),
+                    "git_rev": try_git_rev(Path(".").resolve()),
+                    "configs": [str(pol_map[p].as_posix()) for p in policy],
+                    "seeds": seeds,
+                    "completed": completed,
+                    "total": total,
+                    "last_run_id": last_run_id,
+                },
+            )
+
+        for pol in policy:
+            cfg_path = pol_map[pol]
+            for seed in seeds:
+                run_id = f"sweep_{sid}__{cfg_path.stem}__seed{seed}"
+                run_dir = sweep_root / run_id
+                if run_dir.exists():
+                    if (run_dir / "run_manifest.json").exists():
+                        completed += 1
+                        if completed % progress_every == 0:
+                            write_progress(last_run_id=run_id)
+                        continue
+                    raise typer.BadParameter(
+                        f"Found incomplete run directory (missing run_manifest.json): {run_dir}. "
+                        "Delete it or choose a new sweep prefix."
+                    )
+
+                manifest = execute_run(config_path=cfg_path, seed=seed, out_dir=sweep_root, run_id=run_id)
+                run_entries.append(
+                    {
+                        "run_id": manifest["run_id"],
+                        "system": manifest["config"].get("variant") or manifest["config"].get("system"),
+                        "seed": manifest["seed"],
+                        "config_sha256": manifest.get("config_sha256"),
+                        "manifest_path": manifest["artifacts"]["manifest"],
+                        "metrics_path": manifest["artifacts"]["metrics"],
+                    }
+                )
+                completed += 1
+                if completed % progress_every == 0:
+                    write_progress(last_run_id=run_id)
+
+        sweep_manifest = {
+            "sweep_id": sid,
+            "created_utc": utc_now_iso(),
+            "git_rev": try_git_rev(Path(".").resolve()),
+            "configs": [str(pol_map[p].as_posix()) for p in policy],
+            "seeds": seeds,
+            "runs": run_entries,
+        }
+        write_json(sweep_root / "sweep_manifest.json", sweep_manifest)
+        write_progress(last_run_id="FINALIZED")
+        typer.echo(f"Wrote sweep to: {sweep_root}")
+
+
+@app.command(name="exp3-shock-run")
+def exp3_shock_run_cmd(
+    config_dir: Path = typer.Option(
+        Path("configs/locked/exp3_shock_v1"),
+        "--config-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Directory containing generated Exp3 shock-sweep configs.",
+    ),
+    experiment_id: str = typer.Option(
+        "exp3_shock_v1",
+        "--experiment-id",
+        help="Experiment id prefix used in shock-sweep config filenames.",
+    ),
+    out_dir: Path = typer.Option(Path("artifacts/exp3_shock"), "--out", help="Artifacts root directory."),
+    sweep_prefix: str = typer.Option(
+        "exp3_shock_v1__A",
+        "--sweep-prefix",
+        help='Sweep id prefix for per-shock sweeps (e.g., "exp3_shock_v1__A" or "exp3_shock_v1__B").',
+    ),
+    seed_start: int = typer.Option(0, "--seed-start", min=0, help="Inclusive seed range start."),
+    seed_end: int = typer.Option(29, "--seed-end", min=0, help="Inclusive seed range end."),
+    start_index: int = typer.Option(
+        0,
+        "--start-index",
+        min=0,
+        help="Start index into the deterministically sorted shock point list (for chunked execution).",
+    ),
+    limit_points: int | None = typer.Option(
+        None,
+        "--limit-points",
+        min=1,
+        help="Optional cap on number of shock points to run (for runtime-smoke).",
+    ),
+    policy: list[str] = typer.Option(
+        ["always_act", "always_wait", "wait_on_conflict", "risk_threshold"],
+        "--policy",
+        help="Policy variants expected in each shock point. Repeat to override defaults.",
+    ),
+    resume: bool = typer.Option(
+        True,
+        "--resume/--no-resume",
+        help="Resume-safe: skips only completed per-run dirs (requires run_manifest.json).",
+    ),
+    progress_every: int = typer.Option(10, "--progress-every", min=1, help="Write sweep_progress.json every N runs."),
+) -> None:
+    """Run Exp3 as a sequence of per-shock sweeps with matched seeds across policy variants."""
+    groups = group_exp3_shock_configs_by_point(config_dir, experiment_id=experiment_id)
+    if not groups:
+        raise typer.BadParameter(f"No Exp3 shock configs found under: {config_dir} (experiment_id={experiment_id})")
+
+    point_keys = sorted(groups.keys())
+    if start_index:
+        if start_index >= len(point_keys):
+            raise typer.BadParameter(f"--start-index {start_index} out of range (points={len(point_keys)})")
+        point_keys = point_keys[int(start_index) :]
+    if limit_points is not None:
+        point_keys = point_keys[: int(limit_points)]
+
+    seeds = list(range(int(seed_start), int(seed_end) + 1))
+    if not seeds:
+        raise typer.BadParameter("Empty seed set.")
+
+    for point_key in point_keys:
+        pol_map = groups[point_key]
+        missing = [p for p in policy if p not in pol_map]
+        if missing:
+            raise typer.BadParameter(f"Shock point {point_key} missing policies: {missing}")
 
         sid = f"{sweep_prefix}__{point_key}"
         sweep_root = out_dir / f"sweep_{sid}"

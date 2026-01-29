@@ -213,8 +213,68 @@ class Exp2Config(BaseModel):
     )
 
 
+class ShockModel(BaseModel):
+    """Time-varying multiplier applied to cost parameters (Exp3 only).
+
+    The shock is represented as a scalar multiplier m(t) applied to declared cost terms
+    at a normalized time t in [0, 1] within an episode.
+    """
+
+    shape: Literal["identity", "step", "impulse", "ramp"] = Field(
+        default="identity",
+        description="Shock shape over normalized episode time in [0,1].",
+    )
+    magnitude: float = Field(
+        default=1.0,
+        ge=0.0,
+        description="Shock multiplier (e.g., 2.0 doubles targeted costs).",
+    )
+    start_frac: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Shock start time as fraction of episode time in [0,1].",
+    )
+    duration_frac: float = Field(
+        default=0.2,
+        ge=0.0,
+        le=1.0,
+        description="Shock duration as fraction of episode time in [0,1].",
+    )
+    apply_to: list[Literal["cost_false_act", "cost_false_wait", "wait_cost"]] = Field(
+        default_factory=lambda: ["cost_false_act", "cost_false_wait", "wait_cost"],
+        description="Which cost components the shock multiplier applies to.",
+    )
+
+
+class Exp3Config(Exp2Config):
+    """Experiment 3: Exogenous Shock Stress Test.
+
+    Exp3 reuses Exp2 apparatus (evidence + reconciliation + policies + metrics) and introduces
+    time-varying shocks to the cost regime. Semantics and evidence are expected to match Exp2.
+    """
+
+    kind: Literal["exp3"] = "exp3"
+    shock: ShockModel = Field(
+        default_factory=ShockModel,
+        description="Exogenous shock schedule applied to cost parameters over time.",
+    )
+    inherits_from_exp2_config_path: str | None = Field(
+        default=None,
+        description="Optional path to the Exp2 config this Exp3 config inherits from (audit only unless enforcement is enabled).",
+    )
+    inherits_from_exp2_config_sha256: str | None = Field(
+        default=None,
+        description="Optional sha256 hash of the inherited Exp2 config canonical JSON (audit only unless enforcement is enabled).",
+    )
+    enforce_inheritance: bool = Field(
+        default=False,
+        description="If true and inherits_* fields are provided, Exp3 run hard-fails on inheritance mismatch.",
+    )
+
+
 ExperimentConfig = Annotated[
-    Union[StubConfig, Exp1Config, Exp2Config],
+    Union[StubConfig, Exp1Config, Exp2Config, Exp3Config],
     Field(discriminator="kind"),
 ]
 

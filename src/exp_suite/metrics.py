@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from exp_suite.config import Exp1Config, Exp2Config
+from exp_suite.config import Exp1Config, Exp2Config, Exp3Config
 from exp_suite.state_view import parse_evidence_json, state_view_from_evidence
+from exp_suite.shocks import normalized_time_from_t_idx, shock_scales_for_components
 
 
 Action = Literal["ACT", "WAIT"]
@@ -251,6 +252,222 @@ def _loss_for_action_exp2(
 
     delay_cost = cfg.wait_cost.cost(wait_seconds) if action == "WAIT" else 0.0
     return float(base + delay_cost)
+
+
+def _loss_for_action_exp3(
+    *,
+    action: Action,
+    outcome: str,
+    wait_seconds: float,
+    t_frac: float,
+    cfg: Exp3Config,
+) -> float:
+    scales = shock_scales_for_components(cfg.shock, t_frac)
+    cfa = float(cfg.cost_false_act) * float(scales["cost_false_act"])
+    cfw = float(cfg.cost_false_wait) * float(scales["cost_false_wait"])
+    w_scale = float(scales["wait_cost"])
+
+    # Base classification losses
+    if outcome == "ok":
+        base = cfa if action == "ACT" else 0.0
+    elif outcome == "needs_act":
+        base = cfw if action == "WAIT" else 0.0
+    else:
+        return float("nan")
+
+    delay_cost = (float(cfg.wait_cost.cost(wait_seconds)) * w_scale) if action == "WAIT" else 0.0
+    return float(base + delay_cost)
+
+
+def compute_exp3_metrics(
+    *,
+    decisions: pa.Table,
+    evidence_sets: pa.Table,
+    reconciliation: pa.Table,
+    cfg: Exp3Config,
+) -> dict[str, Any]:
+    """Compute artifact-derived metrics for Exp3 (Exp2 + exogenous shock schedule).
+
+    Exp3 adds a single new variable relative to Exp2: a time-varying shock schedule that modulates
+    declared cost parameters over time. Evidence generation, semantics, reconciliation alignment,
+    and policy implementations are inherited.
+    """
+    if decisions.num_rows == 0:
+        return {
+            "status": "no_decisions",
+            "metrics": {},
+        }
+
+    dec = decisions.to_pandas()
+    es = evidence_sets.to_pandas()
+    rec = reconciliation.to_pandas()
+
+    dec2 = dec.merge(es[["evidence_set_id", "entity_id", "t_idx"]], on="evidence_set_id", how="left")
+
+    rec_parsed = rec["authoritative_outcome_json"].map(json.loads)
+    rec2 = rec.copy()
+    rec2["outcome"] = rec_parsed.map(lambda p: p.get("outcome"))
+    rec2["t_idx"] = rec_parsed.map(lambda p: int(p.get("t_idx")))
+
+    joined = dec2.merge(
+        rec2[["entity_id", "t_idx", "arrival_time", "outcome"]],
+        on=["entity_id", "t_idx"],
+        how="left",
+    )
+
+    joined["wait_seconds"] = (
+        (pd.to_datetime(joined["arrival_time"]) - pd.to_datetime(joined["decision_time"]))
+        .dt.total_seconds()
+        .clip(lower=0.0)
+    )
+
+    # Normalized time within episode for shock schedule.
+    epe = int(getattr(cfg, "events_per_entity", 0) or 0)
+    joined["t_frac"] = joined["t_idx"].map(lambda x: normalized_time_from_t_idx(t_idx=int(x), events_per_entity=epe))
+    # Note: diagnostics; actual scaling may target multiple components.
+    joined["shock_multiplier"] = joined["t_frac"].map(lambda t: float(shock_scales_for_components(cfg.shock, float(t))["wait_cost"]))
+
+    losses: list[float] = []
+    losses_noshock: list[float] = []
+    regrets: list[float] = []
+    correct_flags: list[bool] = []
+
+    # Identity-shock (baseline) config computed once; equivalent to Exp2 evaluation when shocks are disabled.
+    base_cfg = Exp2Config.model_validate(
+        cfg.model_dump(
+            exclude={
+                "shock",
+                "inherits_from_exp2_config_path",
+                "inherits_from_exp2_config_sha256",
+                "enforce_inheritance",
+                "kind",
+            }
+        )
+    )
+
+    for r in joined.itertuples(index=False):
+        if pd.isna(r.outcome):
+            losses.append(float("nan"))
+            losses_noshock.append(float("nan"))
+            regrets.append(float("nan"))
+            correct_flags.append(False)
+            continue
+
+        action: Action = r.action_id
+        wait_s = float(r.wait_seconds) if not pd.isna(r.wait_seconds) else 0.0
+        t_frac = float(r.t_frac) if not pd.isna(r.t_frac) else 0.0
+
+        chosen = _loss_for_action_exp3(action=action, outcome=r.outcome, wait_seconds=wait_s, t_frac=t_frac, cfg=cfg)
+        alt = _loss_for_action_exp3(
+            action=("WAIT" if action == "ACT" else "ACT"),
+            outcome=r.outcome,
+            wait_seconds=wait_s,
+            t_frac=t_frac,
+            cfg=cfg,
+        )
+        oracle = min(chosen, alt)
+        regret = chosen - oracle
+        eps = float(getattr(cfg, "correctness_epsilon", 0.0))
+        correct = chosen <= oracle + eps
+
+        chosen_ns = _loss_for_action_exp2(action=action, outcome=r.outcome, wait_seconds=wait_s, cfg=base_cfg)
+
+        losses.append(chosen)
+        losses_noshock.append(chosen_ns)
+        regrets.append(regret)
+        correct_flags.append(bool(correct))
+
+    joined["loss"] = losses
+    joined["loss_noshock"] = losses_noshock
+    joined["regret_vs_oracle"] = regrets
+    joined["correct"] = correct_flags
+
+    valid = joined[~pd.isna(joined["loss"])].copy()
+    total_decisions = int(len(joined))
+    n_valid = int(len(valid))
+    if n_valid == 0:
+        return {
+            "status": "no_labeled_decisions",
+            "definitions": {"note": "No reconciliation labels joined to decisions."},
+            "metrics": {"decisions_total": total_decisions},
+        }
+
+    valid["is_wait"] = valid["action_id"].astype(str).eq("WAIT")
+
+    total_cost = float(valid["loss"].sum())
+    avg_cost = float(valid["loss"].mean())
+    p95_cost = float(np.quantile(valid["loss"].to_numpy(dtype=float), 0.95))
+    p99_cost = float(np.quantile(valid["loss"].to_numpy(dtype=float), 0.99))
+
+    # Baseline (no-shock) metrics from same artifacts
+    p95_ns = float(np.quantile(valid["loss_noshock"].to_numpy(dtype=float), 0.95))
+    p99_ns = float(np.quantile(valid["loss_noshock"].to_numpy(dtype=float), 0.99))
+    amp_p95 = None if p95_ns == 0.0 else float(p95_cost / p95_ns)
+    amp_p99 = None if p99_ns == 0.0 else float(p99_cost / p99_ns)
+    delta_avg = float(avg_cost - float(valid["loss_noshock"].mean()))
+
+    deferral_rate = float(valid["is_wait"].mean())
+    mean_wait_all = float(valid["wait_seconds"].mean())
+    mean_wait_when_wait = float(valid.loc[valid["is_wait"], "wait_seconds"].mean()) if valid["is_wait"].any() else 0.0
+    correctness_rate = float(valid["correct"].mean()) if len(valid) else 0.0
+    avg_regret = float(valid["regret_vs_oracle"].mean()) if len(valid) else float("nan")
+
+    # Policy churn (stability): action flips over time per entity.
+    flips = []
+    rates = []
+    for ent, sub in valid.groupby("entity_id", sort=False):
+        sub2 = sub.sort_values(["t_idx", "decision_time"], kind="mergesort")
+        acts = list(sub2["action_id"].astype(str).tolist())
+        if len(acts) <= 1:
+            flips.append(0.0)
+            rates.append(0.0)
+            continue
+        f = sum(1 for a, b in zip(acts[:-1], acts[1:]) if a != b)
+        flips.append(float(f))
+        rates.append(float(f) / float(len(acts) - 1))
+
+    shock_mult = valid["t_frac"].map(lambda t: float(shock_scales_for_components(cfg.shock, float(t))["wait_cost"]))
+    frac_under_shock = float((shock_mult != 1.0).mean()) if len(shock_mult) else 0.0
+
+    return {
+        "status": "ok",
+        "definitions": {
+            "shock": cfg.shock.model_dump(),
+            "loss_model": {
+                "cost_false_act": cfg.cost_false_act,
+                "cost_false_wait": cfg.cost_false_wait,
+                "wait_cost": {"family": cfg.wait_cost.family, "params": dict(cfg.wait_cost.params)},
+                "note": "Exp3 applies shock schedule as a multiplier to targeted cost components over normalized episode time.",
+            },
+            "induced_delay": "wait_seconds = reconciliation_arrival_time - decision_time (clipped at 0).",
+        },
+        "metrics": {
+            "decisions_total": total_decisions,
+            "decisions_labeled": n_valid,
+            "M3_total_cost": total_cost,
+            "M3_avg_cost": avg_cost,
+            "M4_p95_cost": p95_cost,
+            "M4_p99_cost": p99_cost,
+            "M5_deferral_rate": deferral_rate,
+            "M2_mean_wait_seconds": mean_wait_all,
+            "M2_mean_wait_seconds_when_wait": mean_wait_when_wait,
+            "M1_correctness_rate": correctness_rate,
+            "M3b_avg_regret_vs_oracle": avg_regret,
+            # Shock-specific: baseline comparison computed from the same artifacts
+            "E3_p95_cost_noshock": p95_ns,
+            "E3_p99_cost_noshock": p99_ns,
+            "E3_p95_amplification": amp_p95,
+            "E3_p99_amplification": amp_p99,
+            "E3_delta_avg_cost_vs_noshock": delta_avg,
+            # Stability / churn
+            "E3_policy_flips_per_entity_mean": float(np.mean(flips)) if flips else 0.0,
+            "E3_policy_churn_rate_mean": float(np.mean(rates)) if rates else 0.0,
+            # Shock exposure diagnostics
+            "E3_frac_decisions_under_shock": frac_under_shock,
+            "E3_shock_multiplier_max": float(shock_mult.max()) if len(shock_mult) else 1.0,
+            "E3_shock_multiplier_mean": float(shock_mult.mean()) if len(shock_mult) else 1.0,
+        },
+    }
 
 
 def compute_exp2_metrics(
