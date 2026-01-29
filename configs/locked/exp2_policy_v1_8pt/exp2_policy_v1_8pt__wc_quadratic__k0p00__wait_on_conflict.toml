@@ -1,0 +1,32 @@
+kind = "exp2"
+phase = "eval"
+experiment_id = "exp2_policy_v1_8pt"
+system = "proposed"
+variant = "wait_on_conflict"
+notes = "Locked exp2 policy sweep wc_quadratic__k0p00 / wait_on_conflict (do not edit)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "wait_on_conflict"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+
+[wait_cost]
+family = "quadratic"
+[wait_cost.params]
+k = 0.001
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0

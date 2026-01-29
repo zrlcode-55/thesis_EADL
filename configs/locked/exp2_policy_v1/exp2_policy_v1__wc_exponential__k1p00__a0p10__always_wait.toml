@@ -1,0 +1,33 @@
+kind = "exp2"
+phase = "eval"
+experiment_id = "exp2_policy_v1"
+system = "proposed"
+variant = "always_wait"
+notes = "Locked exp2 policy sweep wc_exponential__k1p00__a0p10 / always_wait (do not edit)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "always_wait"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+
+[wait_cost]
+family = "exponential"
+[wait_cost.params]
+k = 1.0
+alpha = 0.1
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0

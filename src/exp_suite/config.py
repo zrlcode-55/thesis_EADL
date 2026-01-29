@@ -188,6 +188,13 @@ class Exp2Config(BaseModel):
     cost_false_act: float = Field(default=5.0, ge=0.0, description="Loss if ACT is taken when truth indicates ok.")
     cost_false_wait: float = Field(default=10.0, ge=0.0, description="Loss if WAIT is taken when truth indicates needs_act.")
 
+    # Decision-theoretic correctness tolerance (optional; used only for reporting correctness/regret metrics)
+    correctness_epsilon: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Treat actions within epsilon of the minimum realized loss as correct (used for metrics only).",
+    )
+
     # WAIT delay cost curvature (the key Exp2 axis)
     wait_cost: WaitCostModel = Field(
         default_factory=lambda: WaitCostModel(family="linear", params={"per_second": 0.1}),

@@ -297,16 +297,37 @@ def compute_exp2_metrics(
         .clip(lower=0.0)
     )
 
-    losses = []
+    losses: list[float] = []
+    regrets: list[float] = []
+    correct_flags: list[bool] = []
     for r in joined.itertuples(index=False):
         if pd.isna(r.outcome):
             losses.append(float("nan"))
+            regrets.append(float("nan"))
+            correct_flags.append(False)
             continue
         action: Action = r.action_id
         wait_s = float(r.wait_seconds) if not pd.isna(r.wait_seconds) else 0.0
-        losses.append(_loss_for_action_exp2(action=action, outcome=r.outcome, wait_seconds=wait_s, cfg=cfg))
+        chosen = _loss_for_action_exp2(action=action, outcome=r.outcome, wait_seconds=wait_s, cfg=cfg)
+        alt = _loss_for_action_exp2(
+            action=("WAIT" if action == "ACT" else "ACT"),
+            outcome=r.outcome,
+            wait_seconds=wait_s,
+            cfg=cfg,
+        )
+        oracle = min(chosen, alt)
+        regret = chosen - oracle
+
+        eps = float(getattr(cfg, "correctness_epsilon", 0.0))
+        correct = chosen <= oracle + eps
+
+        losses.append(chosen)
+        regrets.append(regret)
+        correct_flags.append(bool(correct))
 
     joined["loss"] = losses
+    joined["regret_vs_oracle"] = regrets
+    joined["correct"] = correct_flags
 
     valid = joined[~pd.isna(joined["loss"])].copy()
     total_decisions = int(len(joined))
@@ -329,6 +350,8 @@ def compute_exp2_metrics(
     deferral_rate = float(valid["is_wait"].mean())
     mean_wait_all = float(valid["wait_seconds"].mean())
     mean_wait_when_wait = float(valid.loc[valid["is_wait"], "wait_seconds"].mean()) if valid["is_wait"].any() else 0.0
+    correctness_rate = float(valid["correct"].mean()) if len(valid) else 0.0
+    avg_regret = float(valid["regret_vs_oracle"].mean()) if len(valid) else float("nan")
 
     return {
         "status": "ok",
@@ -339,12 +362,18 @@ def compute_exp2_metrics(
                 "wait_cost": {"family": cfg.wait_cost.family, "params": dict(cfg.wait_cost.params)},
             },
             "induced_delay": "wait_seconds = reconciliation_arrival_time - decision_time (clipped at 0).",
+            "correctness": (
+                "Action is correct if its realized loss is within epsilon of the minimum realized loss among {ACT, WAIT} "
+                "under the observed outcome and realized wait duration."
+            ),
         },
         "metrics": {
             "decisions_total": total_decisions,
             "decisions_labeled": n_valid,
             "M3_total_cost": total_cost,
             "M3_avg_cost": avg_cost,
+            "M1_correctness_rate": correctness_rate,
+            "M3b_avg_regret_vs_oracle": avg_regret,
             "M4_p95_cost": p95_cost,
             "M4_p99_cost": p99_cost,
             "M5_deferral_rate": deferral_rate,
