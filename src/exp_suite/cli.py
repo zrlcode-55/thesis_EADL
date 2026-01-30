@@ -325,7 +325,7 @@ def exp3_shock_generate_cmd(
         help="Cost components to shock. Repeat to override defaults.",
     ),
     enforce_inheritance: bool = typer.Option(
-        False,
+        True,
         "--enforce-inheritance/--no-enforce-inheritance",
         help=(
             "If enabled, Exp3 runs will verify they inherit the exact Exp2 apparatus "
@@ -381,6 +381,120 @@ def exp3_shock_generate_cmd(
         enforce_inheritance=bool(enforce_inheritance),
     )
     typer.echo(f"Wrote {len(written)} config files to: {out_dir}")
+
+
+@app.command(name="exp3-verify-identity")
+def exp3_verify_identity_cmd() -> None:
+    """Gate: verify Exp3(identity shock) reduces exactly to Exp2 on key metrics.
+
+    This is a fast, dependency-free check (no filesystem artifacts) intended to be run
+    immediately before starting an official Exp3 sweep.
+    """
+    import json as _json
+
+    import pyarrow as pa
+
+    from exp_suite.config import DelayModel, Exp2Config, Exp3Config, ShockModel, WaitCostModel
+    from exp_suite.metrics import compute_exp2_metrics, compute_exp3_metrics
+    from exp_suite.schemas import decision_schema, evidence_set_schema, reconciliation_schema
+
+    # Build tiny deterministic tables: 2 entities x 3 timepoints.
+    evidence_rows = []
+    decision_rows = []
+    recon_rows = []
+    for entity_id in ["e0", "e1"]:
+        for t_idx in [0, 1, 2]:
+            evid = f"es::{entity_id}::{t_idx}"
+            decision_time = pa.scalar(1_700_000_000_000_000 + (t_idx * 1_000_000), type=pa.timestamp("us"))
+            arrival_time = pa.scalar(1_700_000_000_000_000 + (t_idx * 1_000_000) + 30_000_000, type=pa.timestamp("us"))
+
+            evidence_rows.append(
+                {
+                    "evidence_set_id": evid,
+                    "entity_id": entity_id,
+                    "t_idx": int(t_idx),
+                    "decision_time": decision_time.as_py(),
+                    "evidence_json": "[]",
+                }
+            )
+            # Always ACT so deferral and churn are deterministic and easy to reason about.
+            decision_rows.append(
+                {
+                    "decision_time": decision_time.as_py(),
+                    "action_id": "ACT",
+                    "evidence_set_id": evid,
+                    "confidence": None,
+                    "expected_cost": None,
+                    "policy_id": "always_act",
+                }
+            )
+            # Alternate outcomes so both false_act and false_wait are exercised.
+            outcome = "ok" if (t_idx % 2 == 0) else "needs_act"
+            recon_rows.append(
+                {
+                    "entity_id": entity_id,
+                    "truth_window_start": decision_time.as_py(),
+                    "truth_window_end": decision_time.as_py(),
+                    "authoritative_outcome_json": _json.dumps({"outcome": outcome, "t_idx": int(t_idx)}),
+                    "arrival_time": arrival_time.as_py(),
+                }
+            )
+
+    decisions = pa.Table.from_pylist(decision_rows, schema=decision_schema())
+    evidence_sets = pa.Table.from_pylist(evidence_rows, schema=evidence_set_schema())
+    reconciliation = pa.Table.from_pylist(recon_rows, schema=reconciliation_schema())
+
+    cfg2 = Exp2Config(
+        phase="eval",
+        experiment_id="exp3_verify_identity",
+        system="proposed",
+        variant="always_act",
+        notes=None,
+        entity_count=2,
+        source_count=3,
+        events_per_entity=3,
+        conflict_rate=0.1,
+        missingness=0.0,
+        delay=DelayModel(family="fixed", params={"seconds": 0.0}),
+        decision_lag_seconds=0.0,
+        policy="always_act",
+        cost_false_act=10.0,
+        cost_false_wait=10.0,
+        correctness_epsilon=0.0,
+        wait_cost=WaitCostModel(family="linear", params={"per_second": 0.05}),
+        reconciliation_lag_seconds=30.0,
+        reconciliation_jitter=DelayModel(family="fixed", params={"seconds": 0.0}),
+    )
+    cfg3 = Exp3Config.model_validate(
+        {
+            **cfg2.model_dump(),
+            "kind": "exp3",
+            "shock": ShockModel(shape="identity", magnitude=1.0, start_frac=0.2, duration_frac=0.2).model_dump(),
+        }
+    )
+
+    m2 = compute_exp2_metrics(decisions=decisions, evidence_sets=evidence_sets, reconciliation=reconciliation, cfg=cfg2)
+    m3 = compute_exp3_metrics(decisions=decisions, evidence_sets=evidence_sets, reconciliation=reconciliation, cfg=cfg3)
+
+    if m2.get("status") != "ok" or m3.get("status") != "ok":
+        raise typer.BadParameter(f"Identity gate failed: statuses exp2={m2.get('status')} exp3={m3.get('status')}")
+
+    keys = ["M3_avg_cost", "M4_p95_cost", "M4_p99_cost", "M5_deferral_rate", "M2_mean_wait_seconds_when_wait"]
+    for k in keys:
+        if m3["metrics"].get(k) != m2["metrics"].get(k):
+            raise typer.BadParameter(f"Identity gate failed on {k}: exp3={m3['metrics'].get(k)} exp2={m2['metrics'].get(k)}")
+
+    # Exp3 deltas under identity should be exactly baseline.
+    if m3["metrics"].get("E3_delta_avg_cost_vs_noshock") != 0.0:
+        raise typer.BadParameter(
+            f"Identity gate failed: E3_delta_avg_cost_vs_noshock={m3['metrics'].get('E3_delta_avg_cost_vs_noshock')}"
+        )
+    if m3["metrics"].get("E3_p99_amplification") != 1.0:
+        raise typer.BadParameter(
+            f"Identity gate failed: E3_p99_amplification={m3['metrics'].get('E3_p99_amplification')}"
+        )
+
+    typer.echo("OK: Exp3 identity shock reduces to Exp2 on key metrics.")
 
 
 @app.command(name="grid-summarize")

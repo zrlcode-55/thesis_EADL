@@ -23,6 +23,13 @@ try {
 Write-Host "exp-suite version:"
 exp-suite version
 
+Write-Host "Pre-run gate: Exp3(identity) reduces to Exp2 (fast check) ..."
+if (Get-Command exp-suite -ErrorAction SilentlyContinue) {
+  exp-suite exp3-verify-identity
+} else {
+  python -m exp_suite.cli exp3-verify-identity
+}
+
 Write-Host "Generating IDENTITY gate configs (no-shock equivalence) ..."
 exp-suite exp3-shock-generate `
   --out-dir .\configs\locked\exp3_shock_v1_gate `
