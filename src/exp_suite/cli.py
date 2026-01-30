@@ -262,6 +262,26 @@ def exp3_shock_generate_cmd(
         dir_okay=False,
         help="Base locked Exp2 config used as the inherited apparatus for Exp3 (default points to Exp2 policy v2 base).",
     ),
+    exp2_policy_config_dir: Path | None = typer.Option(
+        None,
+        "--exp2-policy-config-dir",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help=(
+            "Optional directory of locked Exp2 policy-sweep configs to inherit regime points from "
+            "(recommended for thesis lineage; e.g., configs/locked/exp2_policy_v2_16pt). "
+            "If provided, Exp3 points become {exp2_point_key}__{shock_key}."
+        ),
+    ),
+    exp2_policy_experiment_id: str | None = typer.Option(
+        None,
+        "--exp2-policy-experiment-id",
+        help=(
+            "Experiment id prefix for the Exp2 policy configs provided via --exp2-policy-config-dir "
+            "(e.g., exp2_policy_v2_16pt). Required when --exp2-policy-config-dir is set."
+        ),
+    ),
     experiment_id: str = typer.Option(
         "exp3_shock_v1",
         "--experiment-id",
@@ -307,7 +327,10 @@ def exp3_shock_generate_cmd(
     enforce_inheritance: bool = typer.Option(
         False,
         "--enforce-inheritance/--no-enforce-inheritance",
-        help="If enabled, Exp3 runs will verify they inherit the exact base Exp2 config (hash check).",
+        help=(
+            "If enabled, Exp3 runs will verify they inherit the exact Exp2 apparatus "
+            "(base config hash pin + field equality on inherited fields)."
+        ),
     ),
 ) -> None:
     """Generate locked Exp3 configs where Exp2 apparatus is inherited and only the shock schedule varies across points."""
@@ -351,6 +374,8 @@ def exp3_shock_generate_cmd(
         fixed_system=fixed_system,
         policies=policy,
         shock_models=shock_models,
+        exp2_policy_config_dir=exp2_policy_config_dir,
+        exp2_policy_experiment_id=exp2_policy_experiment_id,
         inherits_from_path=str(base_exp2_config.as_posix()),
         inherits_from_sha256=str(base_sha),
         enforce_inheritance=bool(enforce_inheritance),

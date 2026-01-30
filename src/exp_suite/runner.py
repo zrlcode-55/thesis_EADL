@@ -107,6 +107,18 @@ def execute_run(
             if got != want:
                 raise typer.BadParameter(f"Exp3 inheritance mismatch: want {want}, got {got} (base={base_path})")
 
+            # Stronger guardrail: ensure the Exp3 apparatus matches the inherited Exp2 config on all
+            # shared fields (Exp3 is allowed to differ only in kind/experiment_id/notes and its shock/metadata).
+            base_d = base_cfg.model_dump()
+            cfg_d = cfg.model_dump()
+            for k, v in base_d.items():
+                if k in {"kind", "experiment_id", "notes"}:
+                    continue
+                if cfg_d.get(k) != v:
+                    raise typer.BadParameter(
+                        f"Exp3 inheritance violation on field '{k}': exp3={cfg_d.get(k)!r}, exp2={v!r} (base={base_path})"
+                    )
+
         events = generate_exp1_events(cfg, seed=seed)  # type: ignore[arg-type]
         write_parquet_table(Path(paths["events"]), events)
 

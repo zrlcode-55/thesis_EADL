@@ -279,6 +279,8 @@ def generate_exp3_shock_sweep_configs(
     fixed_system: str,
     policies: list[str],
     shock_models: list[dict[str, Any]],
+    exp2_policy_config_dir: Path | None = None,
+    exp2_policy_experiment_id: str | None = None,
     inherits_from_path: str | None = None,
     inherits_from_sha256: str | None = None,
     enforce_inheritance: bool = False,
@@ -288,33 +290,99 @@ def generate_exp3_shock_sweep_configs(
     Output naming scheme:
       {experiment_id}__{shock_key}__{policy}.toml
     """
-    base = load_base_exp2_config(base_exp2_config_path)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    written: list[Path] = []
-    for shock in shock_models:
-        point_key = _shock_key(shock)
-        for pol in policies:
-            data = dict(base)
-            data["kind"] = "exp3"
-            data["phase"] = "eval"
-            data["experiment_id"] = experiment_id
-            data["system"] = fixed_system
-            data["variant"] = pol
-            data["policy"] = pol
-            data["shock"] = dict(shock)
-            data["notes"] = f"Locked exp3 shock sweep {point_key} / {pol} (do not edit)."
-            if inherits_from_path is not None:
-                data["inherits_from_exp2_config_path"] = str(inherits_from_path)
-            if inherits_from_sha256 is not None:
-                data["inherits_from_exp2_config_sha256"] = str(inherits_from_sha256)
-            data["enforce_inheritance"] = bool(enforce_inheritance)
+    # Canonical sha256 used by runner inheritance enforcement.
+    def _canonical_sha256(d: dict[str, Any]) -> str:
+        import hashlib
 
-            fname = f"{experiment_id}__{point_key}__{pol}.toml"
-            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
-            path = out_dir / fname
-            path.write_text(_render_exp3_toml(dict(data)), encoding="utf-8")
-            written.append(path)
+        b = json.dumps(d, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(b).hexdigest()
+
+    written: list[Path] = []
+    if exp2_policy_config_dir is None:
+        # Back-compat mode: a single Exp2 base template defines the (single) inherited regime.
+        base = load_base_exp2_config(base_exp2_config_path)
+        for shock in shock_models:
+            point_key = _shock_key(shock)
+            for pol in policies:
+                data = dict(base)
+                data["kind"] = "exp3"
+                data["phase"] = "eval"
+                data["experiment_id"] = experiment_id
+                data["system"] = fixed_system
+                data["variant"] = pol
+                data["policy"] = pol
+                data["shock"] = dict(shock)
+                data["notes"] = f"Locked exp3 shock sweep {point_key} / {pol} (do not edit)."
+                if inherits_from_path is not None:
+                    data["inherits_from_exp2_config_path"] = str(inherits_from_path)
+                if inherits_from_sha256 is not None:
+                    data["inherits_from_exp2_config_sha256"] = str(inherits_from_sha256)
+                data["enforce_inheritance"] = bool(enforce_inheritance)
+
+                fname = f"{experiment_id}__{point_key}__{pol}.toml"
+                fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+                path = out_dir / fname
+                path.write_text(_render_exp3_toml(dict(data)), encoding="utf-8")
+                written.append(path)
+    else:
+        # Preferred mode for thesis lineage: derive the inherited regime points directly from an
+        # existing locked Exp2 policy sweep directory (e.g., exp2_policy_v2_16pt).
+        if exp2_policy_experiment_id is None:
+            raise ValueError("exp2_policy_experiment_id must be provided when exp2_policy_config_dir is set.")
+
+        # Import here to avoid import cycles at module import time.
+        from exp_suite.config import Exp2Config, load_config_toml
+
+        exp2_groups = group_exp2_policy_configs_by_point(
+            exp2_policy_config_dir,
+            experiment_id=exp2_policy_experiment_id,
+        )
+        if not exp2_groups:
+            raise ValueError(
+                f"No Exp2 policy configs found under: {exp2_policy_config_dir} (experiment_id={exp2_policy_experiment_id})"
+            )
+
+        for exp2_point_key in sorted(exp2_groups.keys()):
+            pol_map = exp2_groups[exp2_point_key]
+            missing = [p for p in policies if p not in pol_map]
+            if missing:
+                raise ValueError(f"Exp2 point {exp2_point_key} missing policies: {missing}")
+
+            for shock in shock_models:
+                shock_key = _shock_key(shock)
+                point_key = f"{exp2_point_key}__{shock_key}"
+                for pol in policies:
+                    base_path = pol_map[pol]
+                    base_dict = load_base_exp2_config(base_path)
+                    base_cfg = load_config_toml(base_path)
+                    if not isinstance(base_cfg, Exp2Config):
+                        raise ValueError(f"Expected Exp2 config at: {base_path}")
+
+                    data = dict(base_dict)
+                    data["kind"] = "exp3"
+                    data["phase"] = "eval"
+                    data["experiment_id"] = experiment_id
+                    data["system"] = fixed_system
+                    data["variant"] = pol
+                    data["policy"] = pol
+                    data["shock"] = dict(shock)
+                    data["notes"] = (
+                        f"Locked exp3 shock sweep {point_key} / {pol} "
+                        f"(inherits {exp2_policy_experiment_id}::{exp2_point_key})."
+                    )
+
+                    # Pin lineage to the specific Exp2 point+policy config used.
+                    data["inherits_from_exp2_config_path"] = str(base_path.as_posix())
+                    data["inherits_from_exp2_config_sha256"] = _canonical_sha256(base_cfg.model_dump())
+                    data["enforce_inheritance"] = bool(enforce_inheritance)
+
+                    fname = f"{experiment_id}__{point_key}__{pol}.toml"
+                    fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+                    path = out_dir / fname
+                    path.write_text(_render_exp3_toml(dict(data)), encoding="utf-8")
+                    written.append(path)
 
     return written
 

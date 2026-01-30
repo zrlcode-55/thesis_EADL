@@ -5,6 +5,7 @@ Experiment 3 is a **single-variable perturbation** of the Experiment 2 apparatus
 - **Exp2 artifact anchors**:
   - `docs/experiment_2_policy_summary__8pt.md` (initial policy sweep)
   - `docs/experiment_2_policy_summary__v2_policy.md` (expanded coverage sweep; A/B holdout)
+  - Locked configs (source-of-truth point set): `configs/locked/exp2_policy_v2_16pt/`
 
 Experiment 3 inherits this validated apparatus unchanged and introduces one additional degree of freedom: **time-varying exogenous shocks to the cost regime** (non-stationary loss and/or waiting-cost scaling). The goal is not to “re-optimize” policies, but to measure whether policy behavior that is interpretable and stable in stationary regimes remains well-behaved under shock dynamics (stability vs oscillation/amplification), and whether tail-risk exposure (p95/p99) becomes shock-dominated even when mean-cost ordering is unchanged.
 
@@ -29,6 +30,7 @@ Before any Exp3 sweep runs:
 
 - **Policy wiring gate**: verify `always_act` deferral rate ≈ 0 and `always_wait` deferral rate ≈ 1 on a small smoke run.
 - **No-shock equivalence gate**: run Exp3 with \(shock\_schedule(t)=1\) (identity). Metrics must match Exp2 within a declared tolerance.
+- **Inheritance enforcement gate (must pass)**: run Exp3 with `--enforce-inheritance` enabled and inherit from the locked Exp2 v2 point set (`configs/locked/exp2_policy_v2_16pt/`). Any drift in inherited apparatus must hard-fail.
 
 If both gates pass, it is defensible to state: **“When shocks are disabled, Experiment 3 reduces to Experiment 2; therefore deviations under shock are attributable to the introduced shock variable rather than configuration drift.”**
 
@@ -38,6 +40,10 @@ Every Exp3 artifact should record enough lineage to make inheritance machine-che
 - `parent_exp2_sweep_id`, `parent_exp2_point_key`
 - Code version identifiers (git revision; dependency lockfile hash if applicable)
 - Shock model id + parameters + shock seed
+
+**Implementation note (current codebase)**: Exp3 configs should be generated from the locked Exp2 v2 point set using:
+- `exp-suite exp3-shock-generate --exp2-policy-config-dir configs/locked/exp2_policy_v2_16pt --exp2-policy-experiment-id exp2_policy_v2_16pt --enforce-inheritance`
+- This makes each Exp3 point key: `{exp2_point_key}__{shock_key}` and pins `inherits_from_exp2_config_path` + `inherits_from_exp2_config_sha256` for per-point machine-checkable lineage.
 
 ### Suggested Exp3 sweep density (interpretable, bounded)
 Exp3 density should be in the **shock dimension** (Exp2 already covers stationary wait-cost families). A minimal, interpretable grid:
