@@ -193,7 +193,9 @@ def render_md(a: dict[str, Any], b: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append("### Experiment 2 — Policy Sweep Summary (THESIS: fixed semantics, policy varies)")
     lines.append("")
-    lines.append("This report summarizes **Exp2 Policy v1** sweeps (fixed state semantics; policy varies) from sweep summaries.")
+    lines.append("This report summarizes Exp2 policy sweeps (fixed state semantics; policy varies) from sweep summaries.")
+    lines.append(f"- Sweep prefix A: `{a.get('sweep_prefix')}`")
+    lines.append(f"- Sweep prefix B: `{b.get('sweep_prefix')}`")
     lines.append("")
     lines.append("## Inputs (artifact anchors)")
     lines.append(f"- Seed Set A artifacts: `{a['artifacts_dir']}` (prefix `{a['sweep_prefix']}`)")

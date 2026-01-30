@@ -2,7 +2,9 @@
 
 Experiment 3 is a **single-variable perturbation** of the Experiment 2 apparatus. Experiment 2 establishes that the decision-policy layer is a controlled and stable subsystem under fixed state semantics: the evidence stream, uncertainty representation, aggregation, reconciliation semantics, and loss accounting are held constant while **only the decision policy** and **WAIT-cost curvature** vary at the commit boundary. Sanity checks confirm correct policy wiring (e.g., `always_act` and `always_wait` deferral behavior), and A/B holdout behavior is stable across representative wait-cost families.
 
-- **Exp2 artifact anchor**: `docs/experiment_2_policy_summary__8pt.md`
+- **Exp2 artifact anchors**:
+  - `docs/experiment_2_policy_summary__8pt.md` (initial policy sweep)
+  - `docs/experiment_2_policy_summary__v2_policy.md` (expanded coverage sweep; A/B holdout)
 
 Experiment 3 inherits this validated apparatus unchanged and introduces one additional degree of freedom: **time-varying exogenous shocks to the cost regime** (non-stationary loss and/or waiting-cost scaling). The goal is not to “re-optimize” policies, but to measure whether policy behavior that is interpretable and stable in stationary regimes remains well-behaved under shock dynamics (stability vs oscillation/amplification), and whether tail-risk exposure (p95/p99) becomes shock-dominated even when mean-cost ordering is unchanged.
 

@@ -1,4 +1,20 @@
-### Experiment 2 — Full Summary (LEGACY: semantics-varying grid run)
+### Experiment 2 — Summary (advisor-facing pointers)
+
+This repository contains multiple Exp2 runs. For thesis defensibility, prioritize the **policy-sweep** variants where **state semantics are fixed and policy varies**.
+
+## Thesis-defensible Exp2 (policy sweeps; fixed semantics, policy varies)
+
+- **Policy sweep (initial)**: `docs/experiment_2_policy_summary__8pt.md`
+  - Locked configs: `configs/locked/exp2_policy_v1_8pt/`
+  - Artifacts root (local): `C:\exp2_policy_artifacts`
+- **Policy sweep (expanded coverage)**: `docs/experiment_2_policy_summary__v2_policy.md`
+  - Locked configs: `configs/locked/exp2_policy_v2_16pt/` (as generated; executed run included **12** unique curvature points)
+  - Artifacts root (local): `C:\exp2_policy_v2_16pt_artifacts`
+  - Completeness audits:
+    - `artifacts/audit_exp2_policy_v2_16pt__A.json`
+    - `artifacts/audit_exp2_policy_v2_16pt__B.json`
+
+## Legacy Exp2 (semantics-varying grid run)
 
 **Important**: This summary corresponds to `exp2_grid_v1` (baseline_a/baseline_b/proposed across 54 regimes).
 That run is **not** the strict preregistered Exp2 isolation design (“state semantics fixed; policy varies”).

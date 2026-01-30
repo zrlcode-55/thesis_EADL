@@ -1,0 +1,155 @@
+{
+  "artifacts_dir": "C:\\exp2_policy_v2_16pt_artifacts",
+  "expected_points_count": 12,
+  "expected_runs_per_point": 120,
+  "found_points_any_count": 12,
+  "found_points_finalized_count": 12,
+  "missing_points_any": [],
+  "missing_points_any_count": 0,
+  "missing_points_finalized": [],
+  "missing_points_finalized_count": 0,
+  "sweep_prefix": "exp2_policy_v2_16pt__A",
+  "sweeps": [
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_exponential__k0p25__a0p05",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_exponential__k0p25__a0p05"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_exponential__k0p50__a0p05",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_exponential__k0p50__a0p05"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_exponential__k0p50__a0p10",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_exponential__k0p50__a0p10"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_exponential__k1p00__a0p05",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_exponential__k1p00__a0p05"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_exponential__k1p00__a0p10",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_exponential__k1p00__a0p10"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_linear__ps0p01",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_linear__ps0p01"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_linear__ps0p02",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_linear__ps0p02"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_linear__ps0p05",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_linear__ps0p05"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_linear__ps0p10",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_linear__ps0p10"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_linear__ps0p20",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_linear__ps0p20"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_quadratic__k0p00",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_quadratic__k0p00"
+    },
+    {
+      "finalized": true,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": "wc_quadratic__k0p01",
+      "run_dirs_count": 120,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A__wc_quadratic__k0p01"
+    },
+    {
+      "finalized": false,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": null,
+      "run_dirs_count": 12,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A_smoke__wc_exponential__k0p25__a0p05"
+    },
+    {
+      "finalized": false,
+      "has_sweep_manifest": true,
+      "has_sweep_progress": true,
+      "missing_run_manifest_sample": [],
+      "point_key": null,
+      "run_dirs_count": 12,
+      "runs_missing_run_manifest": 0,
+      "sweep_dir": "C:\\exp2_policy_v2_16pt_artifacts\\sweep_exp2_policy_v2_16pt__A_smoke__wc_exponential__k0p50__a0p05"
+    }
+  ],
+  "sweeps_found": 14
+}

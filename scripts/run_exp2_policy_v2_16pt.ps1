@@ -1,9 +1,9 @@
 $ErrorActionPreference = "Stop"
 
-# Runs Exp2 policy sweep v2 (16-point wait-cost coverage) in a resume-safe way.
+# Runs Exp2 policy sweep v2 (coverage sweep) in a resume-safe way.
 # - Semantics held fixed (default: system=proposed)
 # - Policies vary within each wait-cost curvature point (matched seeds)
-# - Curvature points expanded to 16 to extend coverage (linear/quadratic/exponential)
+# - Coverage-expanded curvature set (linear/quadratic/exponential); see the generated report for exact included point count
 #
 # Output is written to a local (non-OneDrive) directory by default for robustness.
 

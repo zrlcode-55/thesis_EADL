@@ -150,13 +150,13 @@ If you want a single “do it all” script (generate + smoke + A + B), use:
 
 - `scripts/run_exp2_policy_v1.ps1`
 
-### Exp2 Policy v2 — extended curvature coverage (16 points)
+### Exp2 Policy v2 — extended curvature coverage (coverage sweep)
 
-If you want to extend wait-cost coverage beyond the preregistered v1 defaults, use **Policy v2 (16-point coverage)**.
+If you want to extend wait-cost coverage beyond the preregistered v1 defaults, use **Policy v2 (coverage sweep)**.
 This keeps the Exp2 isolation contract intact (fixed semantics + fixed evidence stream; only policy + wait-cost curvature vary),
 but increases the number of curvature points for better coverage before entering Exp3.
 
-- **Locked configs**: `configs/locked/exp2_policy_v2_16pt/`
+- **Locked configs**: `configs/locked/exp2_policy_v2_16pt/` (note: the executed run included 12 unique curvature points; see report)
 - **One-click runner**: `scripts/run_exp2_policy_v2_16pt.ps1`
 - **Suggested artifacts root**: `C:\exp2_policy_v2_16pt_artifacts`
 
