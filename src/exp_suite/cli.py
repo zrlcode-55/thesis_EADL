@@ -255,12 +255,12 @@ def exp3_shock_generate_cmd(
         help="Output directory for generated locked Exp3 shock-sweep configs.",
     ),
     base_exp2_config: Path = typer.Option(
-        Path("configs/locked/exp2_policy_v1_base.toml"),
+        Path("configs/locked/exp2_policy_v2_base.toml"),
         "--base-exp2-config",
         exists=True,
         file_okay=True,
         dir_okay=False,
-        help="Base locked Exp2 config used as the inherited apparatus for Exp3.",
+        help="Base locked Exp2 config used as the inherited apparatus for Exp3 (default points to Exp2 policy v2 base).",
     ),
     experiment_id: str = typer.Option(
         "exp3_shock_v1",

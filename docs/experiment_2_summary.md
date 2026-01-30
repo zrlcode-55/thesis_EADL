@@ -19,7 +19,7 @@ This repository contains multiple Exp2 runs. For thesis defensibility, prioritiz
 **Important**: This summary corresponds to `exp2_grid_v1` (baseline_a/baseline_b/proposed across 54 regimes).
 That run is **not** the strict preregistered Exp2 isolation design (“state semantics fixed; policy varies”).
 
-For the thesis-defensible Exp2, use **`exp2_policy_v1`** (policy sweep with fixed semantics) as described in `docs/experiment2_runbook.md` and `scripts/run_exp2_policy_v1.ps1`.
+For the thesis-defensible Exp2, use the **policy sweeps** listed above (especially the expanded coverage sweep: `docs/experiment_2_policy_summary__v2_policy.md`).
 
 This report is **artifact-derived** from:
 - Locked configs: `configs/locked/exp2_grid_v1/`
