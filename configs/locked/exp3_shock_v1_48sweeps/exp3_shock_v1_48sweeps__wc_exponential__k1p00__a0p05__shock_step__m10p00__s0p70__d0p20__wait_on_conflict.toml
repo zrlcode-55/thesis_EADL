@@ -1,0 +1,43 @@
+kind = "exp3"
+phase = "eval"
+experiment_id = "exp3_shock_v1_48sweeps"
+system = "proposed"
+variant = "wait_on_conflict"
+notes = "Locked exp3 shock sweep wc_exponential__k1p00__a0p05__shock_step__m10p00__s0p70__d0p20 / wait_on_conflict (inherits exp2_policy_v2_16pt::wc_exponential__k1p00__a0p05)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "wait_on_conflict"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+inherits_from_exp2_config_path = "configs/locked/exp2_policy_v2_16pt/exp2_policy_v2_16pt__wc_exponential__k1p00__a0p05__wait_on_conflict.toml"
+inherits_from_exp2_config_sha256 = "1231f48753178bfbbe095077a7c58534621a5811f2a68ca457ae72264bcd9672"
+enforce_inheritance = true
+
+[wait_cost]
+family = "exponential"
+[wait_cost.params]
+k = 1.0
+alpha = 0.05
+
+[shock]
+shape = "step"
+magnitude = 10.0
+start_frac = 0.7
+duration_frac = 0.2
+apply_to = ["cost_false_act", "cost_false_wait", "wait_cost"]
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0

@@ -1,0 +1,42 @@
+kind = "exp3"
+phase = "eval"
+experiment_id = "exp3_shock_v1_48sweeps"
+system = "proposed"
+variant = "always_wait"
+notes = "Locked exp3 shock sweep wc_linear__ps0p10__shock_ramp__m2p00__s0p20__d0p20 / always_wait (inherits exp2_policy_v2_16pt::wc_linear__ps0p10)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "always_wait"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+inherits_from_exp2_config_path = "configs/locked/exp2_policy_v2_16pt/exp2_policy_v2_16pt__wc_linear__ps0p10__always_wait.toml"
+inherits_from_exp2_config_sha256 = "3bd27887751d9d1b13c288463e6aa6aed91a9905e377412c348559add2e5c359"
+enforce_inheritance = true
+
+[wait_cost]
+family = "linear"
+[wait_cost.params]
+per_second = 0.1
+
+[shock]
+shape = "ramp"
+magnitude = 2.0
+start_frac = 0.2
+duration_frac = 0.2
+apply_to = ["cost_false_act", "cost_false_wait", "wait_cost"]
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0

@@ -1,0 +1,43 @@
+kind = "exp3"
+phase = "eval"
+experiment_id = "exp3_shock_v1_48sweeps"
+system = "proposed"
+variant = "always_act"
+notes = "Locked exp3 shock sweep wc_exponential__k0p50__a0p05__shock_identity__m1p00__s0p20__d0p20 / always_act (inherits exp2_policy_v2_16pt::wc_exponential__k0p50__a0p05)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "always_act"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+inherits_from_exp2_config_path = "configs/locked/exp2_policy_v2_16pt/exp2_policy_v2_16pt__wc_exponential__k0p50__a0p05__always_act.toml"
+inherits_from_exp2_config_sha256 = "ea4227c8b62e44f84cf76414651831832c21e5b8158c5919c9377286fe79a423"
+enforce_inheritance = true
+
+[wait_cost]
+family = "exponential"
+[wait_cost.params]
+k = 0.5
+alpha = 0.05
+
+[shock]
+shape = "identity"
+magnitude = 1.0
+start_frac = 0.2
+duration_frac = 0.2
+apply_to = ["cost_false_act", "cost_false_wait", "wait_cost"]
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0

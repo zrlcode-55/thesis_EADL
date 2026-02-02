@@ -1,0 +1,43 @@
+kind = "exp3"
+phase = "eval"
+experiment_id = "exp3_shock_v1_48sweeps"
+system = "proposed"
+variant = "risk_threshold"
+notes = "Locked exp3 shock sweep wc_exponential__k0p25__a0p05__shock_step__m10p00__s0p70__d0p20 / risk_threshold (inherits exp2_policy_v2_16pt::wc_exponential__k0p25__a0p05)."
+entity_count = 200
+source_count = 3
+events_per_entity = 50
+conflict_rate = 0.1
+missingness = 0.05
+decision_lag_seconds = 0.0
+policy = "risk_threshold"
+reconciliation_lag_seconds = 30.0
+cost_false_act = 10.0
+cost_false_wait = 10.0
+inherits_from_exp2_config_path = "configs/locked/exp2_policy_v2_16pt/exp2_policy_v2_16pt__wc_exponential__k0p25__a0p05__risk_threshold.toml"
+inherits_from_exp2_config_sha256 = "dc812261ed40b3bc37ff9f9afdb14b493970801f9b35bce9b52aba7afabe95b3"
+enforce_inheritance = true
+
+[wait_cost]
+family = "exponential"
+[wait_cost.params]
+k = 0.25
+alpha = 0.05
+
+[shock]
+shape = "step"
+magnitude = 10.0
+start_frac = 0.7
+duration_frac = 0.2
+apply_to = ["cost_false_act", "cost_false_wait", "wait_cost"]
+
+[delay]
+family = "lognormal"
+[delay.params]
+mu = 0.0
+sigma = 0.5
+
+[reconciliation_jitter]
+family = "fixed"
+[reconciliation_jitter.params]
+seconds = 0.0
