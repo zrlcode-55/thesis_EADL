@@ -1,7 +1,7 @@
 # Experiment Suite — Decision-Making Under Delayed Reconciliation
 
 **Zachary Larkin** | Vanderbilt CS Master's Thesis
-Advisor: Dr. Aniruddha Gokhale
+
 
 ---
 
@@ -128,4 +128,4 @@ There are a couple known imperfections: one Exp1 sweep was rerun after the initi
 
 Zach Larkin — zachary.larkin@vanderbilt.edu
 
-Thesis defense: May 2, 2026. If something doesn't make sense, email me before the defense.
+
