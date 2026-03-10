@@ -51,7 +51,6 @@ def execute_run(
                 "EVAL phase requires configs under configs/locked/ (predeclared, not edited after runs)."
             )
 
-    # Artifact paths
     paths = {
         "events": str((run_root / "events.parquet").as_posix()),
         "decisions": str((run_root / "decisions.parquet").as_posix()),
@@ -66,7 +65,6 @@ def execute_run(
         b = json.dumps(d, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(b).hexdigest()
 
-    # Write core artifacts first (manifest is written last by design).
     if isinstance(cfg, Exp1Config):
         events = generate_exp1_events(cfg, seed=seed)
         write_parquet_table(Path(paths["events"]), events)
@@ -74,17 +72,14 @@ def execute_run(
         reconciliation = generate_exp1_reconciliation(events, cfg, seed=seed)
         write_parquet_table(Path(paths["reconciliation"]), reconciliation)
 
-        # State representation summary (representation only).
         events_df = events.to_pandas()
         summary = summarize_state(events_df, semantics=cfg.system)
         write_json(Path(paths["state_summary"]), summary.__dict__)
 
-        # Decisions + evidence sets.
         dec = generate_exp1_decisions(events, cfg, seed=seed, policy=cfg.policy)
         write_parquet_table(Path(paths["decisions"]), dec.decisions)
         write_parquet_table(Path(paths["evidence_sets"]), dec.evidence_sets)
 
-        # Metrics derived ONLY from artifacts.
         metrics = compute_exp1_metrics(
             decisions=dec.decisions,
             evidence_sets=dec.evidence_sets,
@@ -141,7 +136,6 @@ def execute_run(
         )
         write_json(Path(paths["metrics"]), metrics)
     elif isinstance(cfg, Exp2Config):
-        # Exp2 reuses the Exp1 evidence stream + reconciliation alignment, but uses Exp2 metrics.
         events = generate_exp1_events(cfg, seed=seed)  # type: ignore[arg-type]
         write_parquet_table(Path(paths["events"]), events)
 

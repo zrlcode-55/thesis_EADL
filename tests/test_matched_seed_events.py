@@ -13,7 +13,7 @@ def test_matched_seed_generates_identical_events_across_systems() -> None:
     assert cfg_a.kind == "exp1"
     assert cfg_p.kind == "exp1"
 
-    # Matched-seed principle: system semantics must not affect workload generation.
+    # semantics must not affect workload generation — same seed must produce identical events
     events_a = generate_exp1_events(cfg_a, seed=0)
     events_p = generate_exp1_events(cfg_p, seed=0)
 

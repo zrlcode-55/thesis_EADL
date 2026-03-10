@@ -33,16 +33,13 @@ def _loss_for_action(
     wait_seconds: float,
     cfg: Exp1Config,
 ) -> float:
-    # Base classification losses
     if outcome == "ok":
         base = cfg.cost_false_act if action == "ACT" else 0.0
     elif outcome == "needs_act":
         base = cfg.cost_false_wait if action == "WAIT" else 0.0
     else:
-        # Unknown outcome label: treat as unevaluable (NaN)
         return float("nan")
 
-    # Waiting cost only applies if the chosen action is WAIT
     delay_cost = cfg.cost_wait_per_second * max(0.0, wait_seconds) if action == "WAIT" else 0.0
     return float(base + delay_cost)
 
@@ -54,11 +51,10 @@ def compute_exp1_metrics(
     reconciliation: pa.Table,
     cfg: Exp1Config,
 ) -> dict[str, Any]:
-    """Compute artifact-derived metrics for Exp1 (no results tuning).
+    """Compute artifact-derived metrics for Exp1.
 
-    Correctness definition (decision-theoretic):
-    - An action is correct if its realized loss is within epsilon of the minimum realized loss
-      among {ACT, WAIT} under the observed outcome and waiting duration.
+    Correctness is decision-theoretic: an action is correct if its realized loss is within
+    epsilon of the minimum achievable loss across {ACT, WAIT} given the observed outcome.
     """
     if decisions.num_rows == 0:
         return {
@@ -70,17 +66,14 @@ def compute_exp1_metrics(
     es = evidence_sets.to_pandas()
     rec = reconciliation.to_pandas()
 
-    # Join decisions -> evidence_sets to recover entity_id/t_idx
     dec2 = dec.merge(es[["evidence_set_id", "entity_id", "t_idx"]], on="evidence_set_id", how="left")
 
-    # Parse reconciliation outcome label from authoritative_outcome_json
     rec_parsed = rec["authoritative_outcome_json"].map(json.loads)
     rec2 = rec.copy()
     rec2["outcome"] = rec_parsed.map(lambda p: p.get("outcome"))
     rec2["truth_value"] = rec_parsed.map(lambda p: p.get("truth_value"))
     rec2["t_idx"] = rec_parsed.map(lambda p: int(p.get("t_idx")))
 
-    # Join on (entity_id, t_idx)
     joined = dec2.merge(
         rec2[["entity_id", "t_idx", "arrival_time", "outcome"]],
         on=["entity_id", "t_idx"],
@@ -94,7 +87,6 @@ def compute_exp1_metrics(
         .clip(lower=0.0)
     )
 
-    # Compute realized losses for the chosen action and for the oracle.
     losses = []
     regrets = []
     correct_flags = []
@@ -123,7 +115,6 @@ def compute_exp1_metrics(
     joined["regret_vs_oracle"] = regrets
     joined["correct"] = correct_flags
 
-    # Aggregate (episode/run-level)
     valid = joined[~pd.isna(joined["loss"])]
     total = int(len(joined))
     correctness_rate = float(valid["correct"].mean()) if len(valid) else 0.0
@@ -137,8 +128,7 @@ def compute_exp1_metrics(
         avg_regret_vs_oracle=avg_regret,
     )
 
-    # --- Overhead / conflict budget (M7–M9) ---
-    # Deterministic sampling to keep overhead measurement stable and bounded.
+    # Deterministic sampling keeps overhead measurement bounded and reproducible.
     sample_limit = int(getattr(cfg, "overhead_sample_limit", 1000))
     q = float(getattr(cfg, "overhead_quantile", 0.95))
     q = min(1.0, max(0.0, q))
@@ -242,7 +232,6 @@ def _loss_for_action_exp2(
     wait_seconds: float,
     cfg: Exp2Config,
 ) -> float:
-    # Base classification losses
     if outcome == "ok":
         base = cfg.cost_false_act if action == "ACT" else 0.0
     elif outcome == "needs_act":
@@ -267,7 +256,6 @@ def _loss_for_action_exp3(
     cfw = float(cfg.cost_false_wait) * float(scales["cost_false_wait"])
     w_scale = float(scales["wait_cost"])
 
-    # Base classification losses
     if outcome == "ok":
         base = cfa if action == "ACT" else 0.0
     elif outcome == "needs_act":
@@ -321,10 +309,8 @@ def compute_exp3_metrics(
         .clip(lower=0.0)
     )
 
-    # Normalized time within episode for shock schedule.
     epe = int(getattr(cfg, "events_per_entity", 0) or 0)
     joined["t_frac"] = joined["t_idx"].map(lambda x: normalized_time_from_t_idx(t_idx=int(x), events_per_entity=epe))
-    # Note: diagnostics; actual scaling may target multiple components.
     joined["shock_multiplier"] = joined["t_frac"].map(lambda t: float(shock_scales_for_components(cfg.shock, float(t))["wait_cost"]))
 
     losses: list[float] = []
@@ -332,7 +318,7 @@ def compute_exp3_metrics(
     regrets: list[float] = []
     correct_flags: list[bool] = []
 
-    # Identity-shock (baseline) config computed once; equivalent to Exp2 evaluation when shocks are disabled.
+    # Strip shock fields to get the equivalent Exp2 config for noshock baseline comparison.
     base_cfg = Exp2Config.model_validate(
         cfg.model_dump(
             exclude={
@@ -556,7 +542,7 @@ def compute_exp2_metrics(
             "metrics": {"decisions_total": total_decisions},
         }
 
-    # Deferral (WAIT) rate is computed over labeled decisions.
+    # Deferral rate is computed over labeled decisions only.
     valid["is_wait"] = valid["action_id"].astype(str).eq("WAIT")
 
     total_cost = float(valid["loss"].sum())

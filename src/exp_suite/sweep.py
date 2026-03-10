@@ -74,7 +74,6 @@ def summarize_sweep(sweep_dir: Path, *, metrics_filename: str = "metrics.json") 
     included = []
     excluded = []
 
-    # Collect metric values per system per metric name
     per_system: dict[str, dict[str, list[float]]] = {}
 
     for r in runs:

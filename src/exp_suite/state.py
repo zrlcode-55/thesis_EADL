@@ -14,22 +14,16 @@ Semantics = Literal["baseline_a", "baseline_b", "proposed"]
 class StateSummary:
     total_events: int
     total_entities: int
-    # how often we observed disagreement at a timepoint (based on payload field)
-    conflict_timepoints: int
-    # representation “width” (proxy for conflict set size)
-    max_candidates: int
+    conflict_timepoints: int  # timepoints where sources disagreed
+    max_candidates: int       # peak unique-value count across timepoints
     avg_candidates: float
 
 
 def summarize_state(events_df: pd.DataFrame, *, semantics: Semantics) -> StateSummary:
-    """Summarize how a semantics would represent state under conflicts.
+    """Characterize representation width under a given semantics — no decisions made here.
 
-    This does NOT make decisions. It only characterizes representation width.
-
-    Proxy definition (Snippet 4 discipline):
-    - Group by (entity_id, t_idx).
-    - Candidate set = unique observed `value` across sources at that timepoint.
-    - Baseline A/B collapse to 1 candidate; Proposed keeps all candidates.
+    Groups by (entity_id, t_idx). Candidate set = unique observed values at each timepoint.
+    Baselines always collapse to 1; proposed keeps all unique values.
     """
     if events_df.empty:
         return StateSummary(0, 0, 0, 0, 0.0)

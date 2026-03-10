@@ -11,8 +11,8 @@ Semantics = Literal["baseline_a", "baseline_b", "proposed"]
 @dataclass(frozen=True)
 class EvidenceItem:
     source_id: str
-    event_time: str  # ISO string
-    receipt_time: str  # ISO string
+    event_time: str   # ISO string
+    receipt_time: str # ISO string
     value: Any
 
 
@@ -21,8 +21,8 @@ class StateView:
     """What the policy is allowed to see at a decision point."""
 
     semantics: Semantics
-    conflict_size: int  # number of candidates represented
-    candidates: tuple[Any, ...]  # optional; stable ordering
+    conflict_size: int       # number of distinct candidates
+    candidates: tuple[Any, ...]
 
 
 def parse_evidence_json(evidence_json: str) -> list[EvidenceItem]:
@@ -43,40 +43,32 @@ def state_view_from_evidence(
     semantics: Semantics,
     evidence: Iterable[EvidenceItem],
 ) -> StateView:
-    """Map raw evidence into a semantics-specific representation.
+    """Map raw evidence into a semantics-specific state representation.
 
-    Baseline A: overwrite to a single candidate (take the last item by receipt_time ordering).
-    Baseline B: last-writer-wins by receipt_time (same as A here, but kept distinct for extension).
-    Proposed: preserve all unique candidates observed.
-
-    Note: this is intentionally minimal; future snippets can make A vs B diverge.
+    baseline_a: last value by event_time (source clock), collapses to one candidate.
+    baseline_b: last value by receipt_time (arrival order), collapses to one candidate.
+    proposed:   all unique values in receipt order — exposes conflict_size > 1 when sources disagree.
     """
     ev = list(evidence)
     if not ev:
         return StateView(semantics=semantics, conflict_size=0, candidates=())
 
-    # Stable orders for deterministic selection
     by_receipt = sorted(ev, key=lambda x: (x.receipt_time, x.source_id))
-    by_event = sorted(ev, key=lambda x: (x.event_time, x.source_id))
+    by_event   = sorted(ev, key=lambda x: (x.event_time, x.source_id))
 
     if semantics == "baseline_a":
-        # Naive overwrite semantics: trusts event time (source time) and collapses to one value.
         chosen = by_event[-1].value
         return StateView(semantics=semantics, conflict_size=1, candidates=(chosen,))
 
     if semantics == "baseline_b":
-        # LWW by receipt time: trusts arrival order and collapses to one value.
         chosen = by_receipt[-1].value
         return StateView(semantics=semantics, conflict_size=1, candidates=(chosen,))
 
     if semantics == "proposed":
-        # Preserve all unique values, deterministically ordered by first appearance in receipt order.
-        seen = []
+        seen: list[Any] = []
         for item in by_receipt:
             if item.value not in seen:
                 seen.append(item.value)
         return StateView(semantics=semantics, conflict_size=len(seen), candidates=tuple(seen))
 
     raise ValueError(f"Unknown semantics: {semantics}")
-
-

@@ -49,14 +49,11 @@ def generate_exp1_decisions(
     seed: int,
     policy: PolicyId = "wait_on_conflict",
 ) -> DecisionArtifacts:
-    """Generate DecisionRecord + referenced evidence sets.
+    """Generate decisions and the evidence sets they reference.
 
-    Discipline for Snippet 5:
-    - Decision opportunity = every (entity_id, t_idx) timepoint.
-    - Decision time = max receipt_time within that (entity_id, t_idx) + decision_lag_seconds.
-      This ensures the decision is based on evidence that has arrived, not on event time.
-    - Action space is minimal: "ACT" or "WAIT".
-    - Evidence sets are persisted (evidence_sets.parquet) and referenced by ID.
+    One decision opportunity per (entity_id, t_idx). Decision time is the max receipt_time
+    within that timepoint plus any decision_lag — guaranteeing we only use evidence that has
+    actually arrived. Evidence sets are written to artifacts so every decision is auditable.
     """
     if events.num_rows == 0:
         empty_decisions = pa.Table.from_arrays(
@@ -72,7 +69,6 @@ def generate_exp1_decisions(
     df = _extract_timepoint_evidence(events.to_pandas())
     g = df.groupby(["entity_id", "t_idx"], sort=False)
 
-    # Decision time: after evidence has arrived for the timepoint
     decision_time = g["receipt_time"].max()
     decision_time = pd.to_datetime(decision_time, utc=False).astype("datetime64[us]")
 
@@ -85,10 +81,8 @@ def generate_exp1_decisions(
     for (entity_id, t_idx), sub in g:
         dt = decision_time.loc[(entity_id, t_idx)]
 
-        # Evidence available at decision time (by receipt_time)
         available = sub[sub["receipt_time"] <= dt]
 
-        # Canonical evidence representation (sorted, minimal fields)
         ev_items = (
             available[["source_id", "event_time", "receipt_time", "value"]]
             .sort_values(["receipt_time", "source_id"], kind="mergesort")
@@ -108,7 +102,6 @@ def generate_exp1_decisions(
 
         evid_id = _evidence_set_id("exp1", seed, entity_id, t_idx, json.dumps(ev_list, sort_keys=True))
 
-        # Semantics-specific state view derived from the same evidence set.
         sv = state_view_from_evidence(
             semantics=cfg.system,
             evidence=parse_evidence_json(json.dumps(ev_list, separators=(",", ":"), sort_keys=True)),
@@ -197,7 +190,6 @@ def generate_exp1_decisions(
     dec_df = pd.DataFrame(decisions_rows)
     set_df = pd.DataFrame(set_rows)
 
-    # Stable ordering
     dec_df = dec_df.sort_values(["decision_time", "policy_id"], kind="mergesort").reset_index(drop=True)
     set_df = set_df.sort_values(["decision_time", "entity_id", "t_idx"], kind="mergesort").reset_index(drop=True)
 

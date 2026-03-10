@@ -334,16 +334,14 @@ def exp3_shock_generate_cmd(
     ),
 ) -> None:
     """Generate locked Exp3 configs where Exp2 apparatus is inherited and only the shock schedule varies across points."""
-    # Deterministic mapping for timing labels
-    timing_map = {"early": 0.2, "late": 0.7}
+        timing_map = {"early": 0.2, "late": 0.7}
     starts = []
     for t in shock_timing:
         if t not in timing_map:
             raise typer.BadParameter(f"Invalid --shock-timing '{t}'. Allowed: early, late.")
         starts.append(float(timing_map[t]))
 
-    # Compute canonical sha256 of the base Exp2 config JSON (for optional inheritance enforcement).
-    from exp_suite.config import load_config_toml, Exp2Config
+        from exp_suite.config import load_config_toml, Exp2Config
     import hashlib
     import json
 
@@ -628,16 +626,13 @@ def grid_run_cmd(
     if not seeds:
         raise typer.BadParameter("Empty seed set.")
 
-    # For each regime point, run one sweep containing all systems.
-    for point_key in point_keys:
+        for point_key in point_keys:
         sys_map = groups[point_key]
         missing = [s for s in ("baseline_a", "baseline_b", "proposed") if s not in sys_map]
         if missing:
             raise typer.BadParameter(f"Regime point {point_key} missing systems: {missing}")
 
         sid = f"{sweep_prefix}__{point_key}"
-        # Reuse the existing `sweep` command logic by invoking execute_run loop here would duplicate code;
-        # instead, call `execute_run` directly to build a sweep dir identical to `sweep`.
         sweep_root = out_dir / f"sweep_{sid}"
         if sweep_root.exists():
             if not resume:
@@ -1084,8 +1079,7 @@ def sweep(
             run_id = f"sweep_{sid}__{cfg_path.stem}__seed{seed}"
             run_dir = sweep_root / run_id
             if run_dir.exists():
-                # Resume mode: only skip if the run manifest exists (completeness signal).
-                if (run_dir / "run_manifest.json").exists():
+                            if (run_dir / "run_manifest.json").exists():
                     completed += 1
                     if completed % progress_every == 0:
                         write_progress(last_run_id=run_id)
@@ -1262,7 +1256,6 @@ def recompute_sweep_metrics_cmd(
 
 
 def _default_run_id() -> str:
-    # Timestamp prefix is human sortable; UUID keeps uniqueness without relying on randomness for semantics.
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"{ts}_{uuid.uuid4().hex[:8]}"
 

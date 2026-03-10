@@ -12,15 +12,13 @@ import pyarrow.parquet as pq
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
+
 def write_parquet_table(path: Path, table: pa.Table) -> None:
     pq.write_table(table, path)
 
 
 def write_empty_parquet(path: Path, schema: pa.Schema) -> None:
-    """Write an empty Parquet file with a declared schema.
-
-    This gives us a stable artifact contract before we generate real data.
-    """
+    """Write a schema-correct empty Parquet file (used for stub runs)."""
     table = pa.Table.from_arrays([pa.array([], type=f.type) for f in schema], schema=schema)
     pq.write_table(table, path)
 
@@ -35,5 +33,3 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
-
-

@@ -38,7 +38,6 @@ def shock_multiplier(shock: ShockModel, t_frac: float) -> float:
         span = max(1e-12, (end - start))
         alpha = (t - start) / span
         return (1.0 - alpha) * 1.0 + alpha * mag
-    # Defensive fallback
     return 1.0
 
 

@@ -1,74 +1,29 @@
-### Final Claims (Exp1–Exp3) — Single Source of Truth
+# Final Claims (Exp1–Exp3)
 
-This document is the **non-negotiable thesis ledger**: it aggregates only what is supported by **locked configs**, **artifact files**, and **code-path-verifiable metric definitions**.
-
-- **Not** an opinion piece.
-- **Not** "what we meant" — it is "what the code produced and what the artifacts contain."
-- If a statistic is not **already materialized** in `artifacts/` (or cannot be deterministically regenerated from artifacts + locked configs), it **does not belong** in the manuscript.
+This document is the single source of truth for all experimental claims in this thesis. Everything here is derived from locked configs, artifact files, and code-verifiable metric definitions. If a statistic isn't materialized in `artifacts/` or can't be deterministically regenerated from artifacts + locked configs, it doesn't appear here.
 
 ---
 
-## EXPERIMENTAL HIERARCHY (NON-NEGOTIABLE — ADVISOR GUIDANCE)
+## Experimental hierarchy
 
-**"Which experiment matters if you only believe one?"**
+**Experiment 1 is the primary contribution.** Conflict-aware state semantics reduce regret vs. baselines that collapse to a single value — across 54 preregistered regime points with holdout stability. This is what the thesis defends.
 
-**Experiment 1 = THE THESIS**  
-- **Primary contribution**: Conflict-aware state semantics reduce regret vs. collapse-to-one baselines.
-- **Structure**: 54 preregistered regime points, holdout stability (A/B), deterministic from artifacts.
-- **This must dominate**: abstract, figures, discussion, oral defense.
+**Experiment 2** demonstrates that policy choice matters under fixed (proposed) semantics. 12 wait-cost points, 4 policies. Secondary contribution — shows cost-aware policies fail under regime mismatch.
 
-**Experiment 2 = POLICY CONSEQUENCE**  
-- **Role**: Demonstrates that policy choice matters under fixed (proposed) semantics.
-- **Structure**: 12 wait-cost points, 4 policies, fixed semantics.
-- **Contribution**: Secondary; shows cost-aware policies can fail under regime mismatch.
-
-**Experiment 3 = STRESS PROBE**  
-- **Role**: Tests robustness under dynamic cost shocks.
-- **Structure**: 4 shock shapes × 12 base points, inherits Exp2 semantics.
-- **Contribution**: Tertiary; shows boundary invariance and tail amplification under stress.
-
-**Verdict**: If Exp1 does not dominate your manuscript structure, the thesis is structurally weak. Exp2/Exp3 are supporting evidence, not co-equal contributions.
-
----
-
-## ABSTRACT PRE-CHECK (ADVISOR REQUIREMENT — DO NOT WRITE ABSTRACT YET)
-
-Before writing the abstract, you must answer:
-
-### What the abstract MUST NOT say:
-- ❌ No real-world deployment claims
-- ❌ No "novel framework" language
-- ❌ No field-level criticism
-- ❌ No future-looking hype
-
-### What the abstract MUST contain (in this order):
-1. **Problem**: Decisions must be made before reconciliation; current state models collapse conflict.
-2. **Method**: Controlled experiments isolating state semantics, policies, and cost shocks.
-3. **Primary Result (Exp1)**: Conflict-aware state reduces regret in X/Y preregistered regimes with holdout stability.
-4. **Scope Limitation**: Results are synthetic, bounded, and comparative.
-
-**Target length**: 150–180 words. If you cannot fit this structure, you are not ready to write.
+**Experiment 3** tests robustness under dynamic cost shocks. 4 shock shapes × 12 base points, inheriting Exp2 apparatus. Tertiary — shows boundary invariance and tail amplification under stress.
 
 ---
 
 ## Document organization
 
-This document is structured to support rigorous manuscript writing:
+1. **Global reproducibility contract**: metric definitions, shock semantics, code anchors.
+2. **Codebase apparatus overview**: implementation modules and repo structure.
+3. **Experiment 1 (Grid v1)**: 54-point regime grid; win/loss counts; holdout stability.
+4. **Experiment 2 (Policy sweep v2)**: 12-point wait-cost sweep; policy comparison.
+5. **Experiment 3 (Shock v1)**: 48-sweep shock robustness; identity gate; tail amplification.
+6. **Cross-experiment synthesis**: bounded claims; explicit non-claims.
 
-1. **Global reproducibility contract** (below): metric definitions, shock semantics, code anchors.
-2. **Codebase apparatus overview**: implementation modules and repo file structure.
-3. **Experiment 1 (Grid v1)**: 54-point preregistered regime grid; win/loss counts; holdout stability.
-4. **Experiment 2 (Policy sweep v2)**: 12-point wait-cost sweep; policy comparison; holdout validation.
-5. **Experiment 3 (Shock v1)**: 48-sweep shock robustness analysis; identity gate; tail amplification.
-6. **Cross-experiment synthesis**: bounded "safe to say" claims; explicit non-claims.
-
-**For each experiment**, you will find:
-- **What it supports** (scope of valid claims)
-- **Inputs** (locked configs)
-- **Data inclusion rules** (what was excluded and why)
-- **Claims** (numbered C1–C13, with evidence anchors)
-- **Artifact anchors** (file paths for regeneration)
-- **Regeneration commands** (deterministic reproduction)
+Each experiment section includes: what it supports (claim scope), inputs (locked configs), data inclusion rules, numbered claims C1–C13 with evidence anchors, artifact file paths, and regeneration commands.
 
 ---
 

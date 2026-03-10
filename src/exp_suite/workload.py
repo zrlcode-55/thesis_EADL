@@ -26,12 +26,10 @@ def _sample_delay_seconds(rng: np.random.Generator, delay: DelayModel, n: int) -
     params = delay.params
 
     if fam == "fixed":
-        # seconds
         d = float(params.get("seconds", 0.0))
         return np.full(shape=n, fill_value=max(0.0, d), dtype=float)
 
     if fam == "exponential":
-        # scale (mean) in seconds
         scale = float(params.get("scale", 1.0))
         scale = max(scale, 0.0)
         return rng.exponential(scale=scale, size=n)
@@ -47,12 +45,10 @@ def _sample_delay_seconds(rng: np.random.Generator, delay: DelayModel, n: int) -
 
 
 def generate_exp1_events(cfg: Exp1Config, *, seed: int) -> pa.Table:
-    """Generate a synthetic evidence stream for Experiment 1.
+    """Generate a synthetic evidence stream.
 
-    Interpretation (kept simple and explicit for Snippet 2):
-    - `events_per_entity` defines the number of underlying event timepoints per entity.
-    - Each source may emit an observation at each timepoint (missingness applies per source/timepoint).
-    - `conflict_rate` controls whether sources disagree at a timepoint (when multiple sources present).
+    Each entity has `events_per_entity` timepoints. Sources observe each timepoint independently
+    (missingness applies per source/timepoint). `conflict_rate` controls how often sources disagree.
     """
     rng = np.random.default_rng(seed)
     base_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
@@ -63,16 +59,14 @@ def generate_exp1_events(cfg: Exp1Config, *, seed: int) -> pa.Table:
     for e_idx in range(int(cfg.entity_count)):
         entity_id = f"e{e_idx:06d}"
 
-        # latent "truth" trajectory for payload generation (simple integer state)
         truth = 0
 
         for t_idx in range(int(cfg.events_per_entity)):
             event_time = base_time + (t_idx * step)
 
-            # decide if this timepoint is a "conflict moment"
             conflict_moment = rng.random() < float(cfg.conflict_rate)
 
-            # small truth evolution so streams aren't constant
+            # slow random walk keeps truth from being constant across the episode
             if rng.random() < 0.05:
                 truth += int(rng.integers(-2, 3))
 
@@ -85,7 +79,6 @@ def generate_exp1_events(cfg: Exp1Config, *, seed: int) -> pa.Table:
             for s_idx in observed_sources:
                 source_id = f"s{s_idx:03d}"
 
-                # payload value: either matches truth, or conflicts via perturbation
                 if conflict_moment and len(observed_sources) >= 2:
                     # half the time, flip sign/offset to induce disagreement
                     delta = int(rng.choice([-2, -1, 1, 2]))
@@ -113,7 +106,6 @@ def generate_exp1_events(cfg: Exp1Config, *, seed: int) -> pa.Table:
                 )
 
     if not rows:
-        # Return an empty, schema-correct table.
         return pa.Table.from_arrays(
             [pa.array([], type=f.type) for f in event_schema()], schema=event_schema()
         )
@@ -129,7 +121,6 @@ def generate_exp1_events(cfg: Exp1Config, *, seed: int) -> pa.Table:
     df["event_time"] = df["event_time"].astype("datetime64[us]")
     df["receipt_time"] = df["receipt_time"].astype("datetime64[us]")
 
-    # Sort for stable output (by receipt time then entity)
     df = df.sort_values(["receipt_time", "entity_id", "source_id"], kind="mergesort").reset_index(
         drop=True
     )

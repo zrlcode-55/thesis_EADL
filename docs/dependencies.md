@@ -1,6 +1,6 @@
-## Dependency Rationale (Committee-Defensible)
+# Dependencies
 
-This project intentionally uses a **small** set of mature dependencies. Each one exists to enforce measurement rigor, not to “add features.”
+A minimal set of mature libraries. Each one is here for a specific reason related to measurement integrity, not feature accumulation.
 
 ### Runtime dependencies
 

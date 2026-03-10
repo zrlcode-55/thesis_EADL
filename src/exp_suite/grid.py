@@ -34,12 +34,11 @@ def _toml_escape(s: str) -> str:
 
 
 def _render_exp1_toml(data: dict[str, Any]) -> str:
-    """Render a minimal TOML for Exp1Config (we avoid adding a TOML writer dependency)."""
+    """Render a minimal TOML string for an Exp1Config dict."""
     delay = data.pop("delay")
     recon_jitter = data.pop("reconciliation_jitter")
 
     lines: list[str] = []
-    # Root scalars first (stable ordering)
     root_order = [
         "kind",
         "phase",
@@ -97,7 +96,7 @@ def _render_exp1_toml(data: dict[str, Any]) -> str:
 
 
 def _render_exp2_toml(data: dict[str, Any]) -> str:
-    """Render a minimal TOML for Exp2Config (we avoid adding a TOML writer dependency)."""
+    """Render a minimal TOML string for an Exp2Config dict."""
     delay = data.pop("delay")
     recon_jitter = data.pop("reconciliation_jitter")
     wait_cost = data.pop("wait_cost")
@@ -163,7 +162,7 @@ def _render_exp2_toml(data: dict[str, Any]) -> str:
 
 
 def _render_exp3_toml(data: dict[str, Any]) -> str:
-    """Render a minimal TOML for Exp3Config (we avoid adding a TOML writer dependency)."""
+    """Render a minimal TOML string for an Exp3Config dict."""
     delay = data.pop("delay")
     recon_jitter = data.pop("reconciliation_jitter")
     wait_cost = data.pop("wait_cost")
@@ -285,14 +284,12 @@ def generate_exp3_shock_sweep_configs(
     inherits_from_sha256: str | None = None,
     enforce_inheritance: bool = False,
 ) -> list[Path]:
-    """Generate locked Exp3 configs where state semantics are fixed, policy varies, and shock varies across points.
+    """Generate locked Exp3 configs sweeping shock and policy while holding semantics fixed.
 
-    Output naming scheme:
-      {experiment_id}__{shock_key}__{policy}.toml
+    Filenames: {experiment_id}__{shock_key}__{policy}.toml
     """
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Canonical sha256 used by runner inheritance enforcement.
     def _canonical_sha256(d: dict[str, Any]) -> str:
         import hashlib
 
@@ -301,7 +298,7 @@ def generate_exp3_shock_sweep_configs(
 
     written: list[Path] = []
     if exp2_policy_config_dir is None:
-        # Back-compat mode: a single Exp2 base template defines the (single) inherited regime.
+        # single base template mode (no per-point lineage)
         base = load_base_exp2_config(base_exp2_config_path)
         for shock in shock_models:
             point_key = _shock_key(shock)
@@ -327,13 +324,11 @@ def generate_exp3_shock_sweep_configs(
                 path.write_text(_render_exp3_toml(dict(data)), encoding="utf-8")
                 written.append(path)
     else:
-        # Preferred mode for thesis lineage: derive the inherited regime points directly from an
-        # existing locked Exp2 policy sweep directory (e.g., exp2_policy_v2_16pt).
+        # per-point lineage mode: one Exp3 config per Exp2 point×policy×shock
         if exp2_policy_experiment_id is None:
             raise ValueError("exp2_policy_experiment_id must be provided when exp2_policy_config_dir is set.")
 
-        # Import here to avoid import cycles at module import time.
-        from exp_suite.config import Exp2Config, load_config_toml
+        from exp_suite.config import Exp2Config, load_config_toml  # avoid circular import
 
         exp2_groups = group_exp2_policy_configs_by_point(
             exp2_policy_config_dir,
@@ -373,7 +368,6 @@ def generate_exp3_shock_sweep_configs(
                         f"(inherits {exp2_policy_experiment_id}::{exp2_point_key})."
                     )
 
-                    # Pin lineage to the specific Exp2 point+policy config used.
                     data["inherits_from_exp2_config_path"] = str(base_path.as_posix())
                     data["inherits_from_exp2_config_sha256"] = _canonical_sha256(base_cfg.model_dump())
                     data["enforce_inheritance"] = bool(enforce_inheritance)
@@ -388,11 +382,7 @@ def generate_exp3_shock_sweep_configs(
 
 
 def group_exp3_shock_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
-    """Group Exp3 shock configs into shock points.
-
-    Expects filenames: {experiment_id}__{point_key}__{policy}.toml
-    Returns: {point_key: {policy: path}}
-    """
+    """Index Exp3 configs as {point_key: {policy: path}} from filenames like {exp_id}__{point}__{policy}.toml."""
     groups: dict[str, dict[str, Path]] = {}
     for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
         parts = p.stem.split("__")
@@ -459,12 +449,10 @@ def generate_grid_configs(
             data["system"] = sys
             data["notes"] = f"Locked grid point {p.key()} (do not edit)."
 
-            # Vary preregistered regime axes
             data["conflict_rate"] = p.conflict_rate
             delay = dict(data["delay"])
             delay_params = dict(delay.get("params", {}))
-            # Keep mu fixed; vary sigma.
-            delay["family"] = "lognormal"
+            delay["family"] = "lognormal"  # keep mu fixed, vary sigma
             delay_params.setdefault("mu", 0.0)
             delay_params["sigma"] = p.delay_sigma
             delay["params"] = delay_params
@@ -473,10 +461,7 @@ def generate_grid_configs(
             data["cost_false_act"] = p.cost_false_act
             data["cost_wait_per_second"] = p.cost_wait_per_second
 
-            # Filename encodes the regime point + system
-            fname = f"{experiment_id}__{p.key()}__{sys}.toml"
-            # Guard: only safe characters
-            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
+            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", f"{experiment_id}__{p.key()}__{sys}.toml")
             path = out_dir / fname
             path.write_text(_render_exp1_toml(dict(data)), encoding="utf-8")
             written.append(path)
@@ -519,12 +504,11 @@ def generate_exp2_grid_configs(
             data["system"] = sys
             data["notes"] = f"Locked exp2 grid point {p.key()} (do not edit)."
 
-            # Vary preregistered regime axes
             data["conflict_rate"] = p.conflict_rate
 
             delay = dict(data["delay"])
             delay_params = dict(delay.get("params", {}))
-            delay["family"] = "lognormal"
+            delay["family"] = "lognormal"  # keep mu fixed, vary sigma
             delay_params.setdefault("mu", 0.0)
             delay_params["sigma"] = p.delay_sigma
             delay["params"] = delay_params
@@ -532,7 +516,6 @@ def generate_exp2_grid_configs(
 
             data["cost_false_act"] = p.cost_false_act
 
-            # For grid_v1: keep family linear; vary per_second
             wc = dict(data.get("wait_cost", {"family": "linear", "params": {"per_second": 0.1}}))
             wc["family"] = "linear"
             wc_params = dict(wc.get("params", {}) or {})
@@ -562,7 +545,6 @@ def _wait_cost_key(wait_cost: dict[str, Any]) -> str:
         return f"wc_quadratic__{_slug_kv('k', float(params.get('k', 0.0)))}"
     if fam == "exponential":
         return f"wc_exponential__{_slug_kv('k', float(params.get('k', 0.0)))}__{_slug_kv('a', float(params.get('alpha', 0.0)))}"
-    # Fallback: stable-ish
     safe = re.sub(r"[^A-Za-z0-9_.-]", "_", fam or "unknown")
     return f"wc_{safe}"
 
@@ -576,16 +558,10 @@ def generate_exp2_policy_sweep_configs(
     policies: list[str],
     wait_cost_models: list[dict[str, Any]],
 ) -> list[Path]:
-    """Generate locked Exp2 configs where **state semantics are fixed** and **policy varies**.
+    """Generate locked Exp2 configs sweeping policy while holding state semantics fixed.
 
-    Output naming scheme:
-      {experiment_id}__{wait_cost_key}__{policy}.toml
-
-    Each file sets:
-      - system = fixed_system
-      - variant = policy   (so sweeps compare policies as "systems" in summaries)
-      - policy = policy
-      - wait_cost = one of wait_cost_models
+    Filenames: {experiment_id}__{wait_cost_key}__{policy}.toml
+    The variant field is set to the policy name so sweep summaries compare policies as systems.
     """
     base = load_base_exp2_config(base_config_path)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -613,11 +589,7 @@ def generate_exp2_policy_sweep_configs(
 
 
 def group_exp2_policy_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
-    """Group Exp2 policy configs into regime points.
-
-    Expects filenames: {experiment_id}__{point_key}__{policy}.toml
-    Returns: {point_key: {policy: path}}
-    """
+    """Index Exp2 policy configs as {point_key: {policy: path}} from filenames like {exp_id}__{point}__{policy}.toml."""
     groups: dict[str, dict[str, Path]] = {}
     for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
         parts = p.stem.split("__")
@@ -639,10 +611,9 @@ def summarize_grid_from_summaries(
     primary_metric: str = "M3b_avg_regret_vs_oracle",
     compare_against: tuple[str, ...] = ("baseline_a", "baseline_b"),
 ) -> dict[str, Any]:
-    """Aggregate many sweep_summary.json files into a grid-level summary artifact.
+    """Aggregate sweep_summary.json files matching a prefix into a grid-level summary artifact.
 
-    `sweep_prefix` is the sweep id prefix, e.g. "exp1_grid_v1__A".
-    We look for directories under artifacts/ named: sweep_{sweep_id} where sweep_id startswith sweep_prefix.
+    Looks for directories under artifacts_dir named sweep_{id} where id starts with sweep_prefix.
     """
     rows: list[dict[str, Any]] = []
 
@@ -677,7 +648,6 @@ def summarize_grid_from_summaries(
             row[f"delta_proposed_minus_{b}"] = None if b_mean is None else proposed_primary - b_mean
         rows.append(row)
 
-    # Summarize wins/losses against baselines
     summary: dict[str, Any] = {
         "sweep_prefix": sweep_prefix,
         "primary_metric": primary_metric,
@@ -704,10 +674,7 @@ def summarize_grid_from_multiple_prefixes(
     primary_metric: str = "M3b_avg_regret_vs_oracle",
     compare_against: tuple[str, ...] = ("baseline_a", "baseline_b"),
 ) -> dict[str, Any]:
-    """Aggregate multiple sweep-id prefixes into one grid-level summary artifact.
-
-    Useful when Seed Set A is run in multiple chunks / prefixes (e.g., A_1h, A_r3).
-    """
+    """Aggregate multiple sweep prefixes into one grid summary — useful when Seed Set A was run in chunks."""
     rows: list[dict[str, Any]] = []
     for pref in sweep_prefixes:
         sub = summarize_grid_from_summaries(
@@ -719,7 +686,6 @@ def summarize_grid_from_multiple_prefixes(
         )
         rows.extend(sub.get("rows", []))
 
-    # Deduplicate by sweep_id (should be unique across prefixes)
     by_id: dict[str, dict[str, Any]] = {}
     for r in rows:
         sid = r.get("sweep_id")
@@ -747,21 +713,12 @@ def summarize_grid_from_multiple_prefixes(
 
 
 def group_grid_configs_by_point(config_dir: Path, *, experiment_id: str) -> dict[str, dict[str, Path]]:
-    """Group grid configs by regime point key.
-
-    Expects filenames like:
-      {experiment_id}__{point_key}__{system}.toml
-
-    Returns:
-      {point_key: {system: path}}
-    """
+    """Index grid configs as {point_key: {system: path}} from filenames like {exp_id}__{point}__{system}.toml."""
     groups: dict[str, dict[str, Path]] = {}
     for p in sorted(config_dir.glob(f"{experiment_id}__*__*.toml")):
-        stem = p.stem
-        parts = stem.split("__")
+        parts = p.stem.split("__")
         if len(parts) < 3:
             continue
-        # parts[0] is experiment_id, parts[-1] is system, middle join is point_key
         sys = parts[-1]
         point_key = "__".join(parts[1:-1])
         groups.setdefault(point_key, {})[sys] = p

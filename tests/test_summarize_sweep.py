@@ -10,7 +10,7 @@ def test_summarize_sweep_basic(tmp_path: Path) -> None:
     sweep_dir = tmp_path / "sweep_test"
     sweep_dir.mkdir(parents=True)
 
-    # Create two fake runs (baseline_a + proposed), each with ok metrics.
+    # two fake runs with matching metrics
     r1 = sweep_dir / "run1"
     r2 = sweep_dir / "run2"
     r1.mkdir()
